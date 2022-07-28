@@ -41,6 +41,8 @@ Rust 程序设计语言：https://doc.rust-lang.org/book/
     - [7.2. Slice 类型](#72-slice-类型)
   - [8. 结构体](#8-结构体)
     - [8.1. 方法](#81-方法)
+  - [9. 枚举](#9-枚举)
+  - [10. match 控制流](#10-match-控制流)
 
 ## 1. Rust 的安装(Mac)
 
@@ -1055,6 +1057,314 @@ fn main() {
 ```
 
 ### 8.1. 方法
+
+方法（method）与函数类似：使用 fn 关键字和名称声明，可以拥有参数和返回值，同时包含在某处调用该方法时会执行的代码。不过方法与函数是不同的，因为它们在结构体的上下文中被定义（或者是枚举或 trait 对象的上下文），并且第一个参数总是 self，它代表调用该方法的结构体实例。
+
+在 Rectangle 结构体上定义 area 方法
+
+```rs
+#[derive(Debug)]
+struct Rectangle {
+    width: u32,
+    height: u32,
+}
+
+impl Rectangle {
+    fn area(&self) -> u32 {
+        self.width * self.height
+    }
+
+    fn can_hold(&self, other: &Rectangle) -> bool {
+        self.width > other.width && self.height > other.height
+    }
+}
+
+fn main() {
+    let rect1 = Rectangle {
+        width: 30,
+        height: 50,
+    };
+    let rect2 = Rectangle {
+        width: 10,
+        height: 40,
+    };
+    let rect3 = Rectangle {
+        width: 60,
+        height: 45,
+    };
+
+    println!("Can rect1 hold rect2? {}", rect1.can_hold(&rect2));
+    println!("Can rect1 hold rect3? {}", rect1.can_hold(&rect3));
+}
+```
+
+在 area 的签名中，使用 &self 来替代 rectangle: &Rectangle，&self 实际上是 self: &Self 的缩写。  
+
+self 前面使用 & 来表示这个方法借用了 Self 实例.  
+
+## 9. 枚举
+
+```rs
+fn main() {
+  enum IpAddrKind {
+    V4,
+    V6,
+  }
+
+  struct IpAddr {
+    kind: IpAddrKind,
+    address: String,
+  }
+
+  let home = IpAddr {
+    kind: IpAddrKind::V4,
+    address: String::from("127.0.0.1"),
+  };
+
+  let loopback = IpAddr {
+    kind: IpAddrKind::V6,
+    address: String::from("::1"),
+  };
+}
+```
+
+一个 Message 枚举，其每个成员都存储了不同数量和类型的值
+
+```rs
+enum Message {
+  Quit,
+  Move { x: i32, y: i32 },
+  Write(String),
+  ChangeColor(i32, i32, i32),
+}
+```
+
+- Quit 没有关联任何数据。
+- Move 类似结构体包含命名字段。
+- Write 包含单独一个 String。
+- ChangeColor 包含三个 i32。
+
+## 10. match 控制流
+
+将一个值与一系列的模式相比较，并根据相匹配的模式执行相应代码。模式可由字面值、变量、通配符和许多其他内容构成.  
+
+```rs
+enum Coin {
+  Penny,
+  Nickel,
+  Dime,
+  Quarter,
+}
+
+fn value_in_cents(coin: Coin) -> u8 {
+  match coin {
+    Coin::Penny => {
+      println!("Lucky penny!");
+      1
+    }
+    Coin::Nickel => 5,
+    Coin::Dime => 10,
+    Coin::Quarter => 25,
+  }
+}
+```
+
+## 11. if let 控制流
+
+if let 语法获取通过等号分隔的一个模式和一个表达式。它的工作方式与 match 相同，这里的表达式对应 match 而模式则对应第一个分支
+
+```rs
+let config_max = Some(3u8);
+match config_max {
+  Some(max) => println!("The maximum is configured to be {}", max),
+  _ => (),
+}
+
+// 功能同上
+let config_max = Some(3u8);
+if let Some(max) = config_max {
+   println!("The maximum is configured to be {}", max);
+}
+```
+
+## 12. 模块管理
+
+Rust 有许多功能可以让你管理代码的组织，包括哪些内容可以被公开，哪些内容作为私有部分，以及程序每个作用域中的名字。这些功能被称为 “模块系统（the module system）”，包括：
+
+- 包（Packages）： Cargo 的一个功能，它允许你构建、测试和分享 crate。
+- Crates ：一个模块的树形结构，它形成了库或二进制项目。
+- 模块（Modules）和 use： 允许你控制作用域和路径的私有性。
+- 路径（path）：一个命名例如结构体、函数或模块等项的方式
+
+### 12.1. 包和 Crate
+
+crate 是一个二进制项或者库。crate root 是一个源文件，Rust 编译器以它为起始点，并构成你的 crate 的根模块.  
+包（package） 是提供一系列功能的一个或者多个 crate。一个包会包含有一个 Cargo.toml 文件，阐述如何去构建这些 crate。  
+包中可以包含至多一个库 crate(library crate)。可以包含任意多个二进制 crate(binary crate)，但是必须至少包含一个 crate（无论是库的还是二进制的）。  
+
+cargo new命令
+
+```text
+$ cargo new my-project
+     Created binary (application) `my-project` package
+$ ls my-project
+Cargo.toml
+src
+$ ls my-project/src
+main.rs
+```
+
+### 12.2 定义模块来控制作用域与私有性
+
+一个包含了其他内置了函数的模块的 front_of_house 模块
+
+```rs
+mod front_of_house {
+    mod hosting {
+        fn add_to_waitlist() {}
+
+        fn seat_at_table() {}
+    }
+
+    mod serving {
+        fn take_order() {}
+
+        fn serve_order() {}
+
+        fn take_payment() {}
+    }
+}
+```
+
+模块树的结构。
+
+```text
+crate
+ └── front_of_house
+     ├── hosting
+     │   ├── add_to_waitlist
+     │   └── seat_at_table
+     └── serving
+         ├── take_order
+         ├── serve_order
+         └── take_payment
+```
+
+路径有两种形式：
+
+- 绝对路径（absolute path）从 crate 根开始，以 crate 名或者字面值 crate 开头。
+- 相对路径（relative path）从当前模块开始，以 self、super 或当前模块的标识符开头。
+
+以下代码会编译失败，暂时忽略
+
+```rs
+mod front_of_house {
+    mod hosting {
+        fn add_to_waitlist() {}
+    }
+}
+
+pub fn eat_at_restaurant() {
+    // 绝对路径
+    crate::front_of_house::hosting::add_to_waitlist();
+
+    // 相对路径
+    front_of_house::hosting::add_to_waitlist();
+}
+```
+
+> 使用 pub 关键字暴露路径
+
+```rs
+mod front_of_house {
+    pub mod hosting {
+        pub fn add_to_waitlist() {}
+    }
+}
+
+pub fn eat_at_restaurant() {
+    // 绝对路径
+    crate::front_of_house::hosting::add_to_waitlist();
+
+    // 相对路径
+    front_of_house::hosting::add_to_waitlist();
+}
+```
+
+> 使用 super 起始的相对路径
+
+使用 super 开头来构建从父模块开始的相对路径。这么做类似于文件系统中以 .. 开头的语法。
+
+```rs
+fn serve_order() {}
+
+mod back_of_house {
+    fn fix_incorrect_order() {
+        cook_order();
+        super::serve_order();
+    }
+
+    fn cook_order() {}
+}
+```
+
+> 使用 use 关键字将路径引入作用域
+
+在作用域中增加 use 和路径类似于在文件系统中创建软连接（符号连接，symbolic link）。通过在 crate 根增加 use crate::front_of_house::hosting，现在 hosting 在作用域中就是有效的名称了，如同 hosting 模块被定义于 crate 根一样。通过 use 引入作用域的路径也会检查私有性，同其它路径一样。
+
+```rs
+mod front_of_house {
+    pub mod hosting {
+        pub fn add_to_waitlist() {}
+    }
+}
+
+use crate::front_of_house::hosting;
+
+pub fn eat_at_restaurant() {
+    hosting::add_to_waitlist();
+    hosting::add_to_waitlist();
+    hosting::add_to_waitlist();
+}
+```
+
+> 使用 as 关键字提供新的名称
+
+用 as 指定一个新的本地名称或者别名
+
+```rs
+use std::fmt::Result;
+use std::io::Result as IoResult;
+
+fn function1() -> Result {
+    // --snip--
+}
+
+fn function2() -> IoResult<()> {
+    // --snip--
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
