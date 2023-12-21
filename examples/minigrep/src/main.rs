@@ -72,4 +72,4 @@ impl Config {
     }
 }
 
-// cargo run -- the a.txt
+// 命令行 cargo run -- the a.txt

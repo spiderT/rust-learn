@@ -10,8 +10,18 @@ Rust 程序设计语言：https://doc.rust-lang.org/book/
   - [1. Rust 的安装(Mac)](#1-rust-的安装mac)
   - [2. Cargo](#2-cargo)
     - [2.1. 使用 Cargo 创建项目](#21-使用-cargo-创建项目)
+      - [2.1.1. 从 crates.io 引入依赖包](#211-从-cratesio-引入依赖包)
+      - [2.1.2. 从其它注册服务引入依赖包](#212-从其它注册服务引入依赖包)
+      - [2.1.3. 引入 git 仓库作为依赖包](#213-引入-git-仓库作为依赖包)
+      - [2.1.4. 通过路径引入本地依赖包](#214-通过路径引入本地依赖包)
+      - [2.1.5. 根据平台引入依赖](#215-根据平台引入依赖)
+      - [2.1.6. \[dev-dependencies\]](#216-dev-dependencies)
+      - [2.1.7. \[build-dependencies\]](#217-build-dependencies)
+      - [2.1.8 选择 features](#218-选择-features)
+      - [2.1.9. 在 Cargo.toml 中重命名依赖](#219-在-cargotoml-中重命名依赖)
     - [2.2. 构建并运行 Cargo 项目](#22-构建并运行-cargo-项目)
-    - [2.3. 发布（release）构建](#23-发布release构建)
+    - [2.3. Cargo.toml 格式](#23-cargotoml-格式)
+    - [2.4. 发布（release）构建](#24-发布release构建)
   - [3. 基础语法](#3-基础语法)
     - [3.1. 变量](#31-变量)
     - [3.2. 常量](#32-常量)
@@ -43,6 +53,10 @@ Rust 程序设计语言：https://doc.rust-lang.org/book/
     - [8.1. 方法](#81-方法)
   - [9. 枚举](#9-枚举)
   - [10. match 控制流](#10-match-控制流)
+  - [11. if let 控制流](#11-if-let-控制流)
+  - [12. 模块管理](#12-模块管理)
+    - [12.1. 包和 Crate](#121-包和-crate)
+    - [12.2 定义模块来控制作用域与私有性](#122-定义模块来控制作用域与私有性)
 
 ## 1. Rust 的安装(Mac)
 
@@ -83,6 +97,231 @@ edition = "2021"
 
 最后一行，[dependencies]，是罗列项目依赖的片段的开始。在 Rust 中，代码包被称为 crates。  
 
+#### 2.1.1. 从 crates.io 引入依赖包
+
+```text
+[dependencies]
+time = "0.1.12"
+```
+
+字符串 "0.1.12" 是一个 semver 格式的版本号，符合 "x.y.z" 的形式，其中 x 被称为主版本major, y 被称为小版本 minor ，而 z 被称为补丁 patch，从左到右，版本的影响范围逐步降低，补丁的更新是无关痛痒的，并不会造成 API 的兼容性被破坏。
+
+"0.1.12" 中并没有任何额外的符号，在版本语义上，它跟使用了 ^ 的 "^0.1.12" 是相同的，都是指定非常具体的版本进行引入。
+
+>| ^ 指定版本  
+
+与之前的 "0.1.12" 不同， ^ 可以指定一个版本号范围，然后会使用该范围内的最大版本号来引用对应的包。  
+
+```text
+^1.2.3  :=  >=1.2.3, <2.0.0
+^1.2    :=  >=1.2.0, <2.0.0
+^1      :=  >=1.0.0, <2.0.0
+^0.2.3  :=  >=0.2.3, <0.3.0
+^0.2    :=  >=0.2.0, <0.3.0
+^0.0.3  :=  >=0.0.3, <0.0.4
+^0.0    :=  >=0.0.0, <0.1.0
+^0      :=  >=0.0.0, <1.0.0
+```
+
+>| ~ 指定版本  
+
+~ 指定了最小化版本 :
+
+```text
+~1.2.3  := >=1.2.3, <1.3.0
+~1.2    := >=1.2.0, <1.3.0
+~1      := >=1.0.0, <2.0.0
+```
+
+>| * 通配符
+
+允许将 * 所在的位置替换成任何数字:
+
+```text
+*     := >=0.0.0
+1.*   := >=1.0.0, <2.0.0
+1.2.* := >=1.2.0, <1.3.0
+```
+
+>| 比较符  
+
+版本号规则仅针对 crate.io 和基于它搭建的注册服务(例如科大服务源) ，其它注册服务(例如 GitHub )有自己相应的规则。  
+
+使用比较符的方式来指定一个版本号范围或一个精确的版本号:
+
+```text
+>= 1.2.0
+> 1
+< 2
+= 1.2.3
+```
+
+还能使用比较符进行组合，并通过逗号分隔：
+
+```text
+>= 1.2, < 1.5
+```
+
+#### 2.1.2. 从其它注册服务引入依赖包
+
+为了使用 crates.io 之外的注册服务，需要对 $HOME/.cargo/config.toml ($CARGO_HOME 下) 文件进行配置，添加新的服务提供商，有两种方式可以实现。  
+
+>| 使用科大的注册服务来提升下载速度
+
+在 crates.io 之外添加新的注册服务，修改 .cargo/config.toml 添加以下内容：
+
+```text
+[registries]
+ustc = { index = "https://mirrors.ustc.edu.cn/crates.io-index/" }
+```
+
+对于这种方式，项目的 Cargo.toml 中的依赖包引入方式也有所不同：
+
+```text
+[dependencies]
+time = {  registry = "ustc" }
+```
+
+在重新配置后，初次构建可能要较久的时间，因为要下载更新 ustc 注册服务的索引文件，这一种使用方式最大的缺点就是在引用依赖包时要指定注册服务: time = { registry = "ustc" }。  
+
+>| 直接使用新注册服务来替代默认的 crates.io  
+
+将源 source.crates-io 替换为 ustc，然后在第二部分指定了 ustc 源的地址。  
+
+注意，如果你要发布包到 crates.io 上，那该包的依赖也必须在 crates.io 上.  
+
+```text
+[source.crates-io]
+replace-with = 'ustc'
+
+[source.ustc]
+registry = "git://mirrors.ustc.edu.cn/crates.io-index"
+```
+
+#### 2.1.3. 引入 git 仓库作为依赖包
+
+```text
+[dependencies]
+regex = { git = "https://github.com/rust-lang/regex" }
+```
+
+由于没有指定版本，Cargo 会假定我们使用 master 或 main 分支的最新 commit 。你可以使用 rev、tag 或 branch 来指定想要拉取的版本。例如下面代码拉取了 next 分支上的最新 commit：
+
+```text
+[dependencies]
+regex = { git = "https://github.com/rust-lang/regex", branch = "next" }
+```
+
+任何非 tag 和 branch 的类型都可以通过 rev 来引入，例如通过最近一次 commit 的哈希值引入: rev = "4c59b707"，再比如远程仓库提供的的具名引用: rev = "refs/pull/493/head"。  
+
+一旦 git 依赖被拉取下来，该版本就会被记录到 Cargo.lock 中进行锁定。因此 git 仓库中后续新的提交不再会被自动拉取，除非你通过 cargo update 来升级。需要注意的是锁定一旦被删除，那 Cargo 依然会按照 Cargo.toml 中配置的地址和版本去拉取新的版本，如果你配置的版本不正确，那可能会拉取下来一个不兼容的新版本！
+
+#### 2.1.4. 通过路径引入本地依赖包
+
+本地依赖包都是同一个项目内的内部包，例如假设我们有一个 hello_world 项目( package )，现在在其根目录下新建一个包:
+
+```text
+#  在 hello_world/ 目录下
+$ cargo new hello_utils
+```
+
+新建的 hello_utils 文件夹跟 src、Cargo.toml 同级，现在修改 Cargo.toml 让 hello_world 项目引入新建的包:
+
+```text
+[dependencies]
+hello_utils = { path = "hello_utils" }
+# 以下路径也可以
+# hello_utils = { path = "./hello_utils" }
+# hello_utils = { path = "../hello_world/hello_utils" }
+```
+
+#### 2.1.5. 根据平台引入依赖
+
+根据特定的平台来引入依赖:
+
+```text
+[target.'cfg(windows)'.dependencies]
+winhttp = "0.4.0"
+
+[target.'cfg(unix)'.dependencies]
+openssl = "1.0.1"
+
+[target.'cfg(target_arch = "x86")'.dependencies]
+native = { path = "native/i686" }
+
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+native = { path = "native/x86_64" }
+```
+
+还能使用逻辑操作符进行控制，当不是 unix 操作系统时，才对 openssl 进行引入。
+
+```text
+[target.'cfg(not(unix))'.dependencies]
+openssl = "1.0.1"
+```
+
+#### 2.1.6. [dev-dependencies]
+
+为项目添加只在测试时需要的依赖库，类似于 package.json( Nodejs )文件中的 devDependencies，可以在 Cargo.toml 中添加 [dev-dependencies] 来实现:
+
+```text
+[dev-dependencies]
+tempdir = "0.3"
+```
+
+这里的依赖只会在运行测试、示例和 benchmark 时才会被引入。并且，假设A 包引用了 B，而 B 通过 [dev-dependencies] 的方式引用了 C 包， 那 A 是不会引用 C 包的。
+
+还可以指定平台特定的测试依赖包:
+
+```text
+[target.'cfg(unix)'.dev-dependencies]
+mio = "0.0.1"
+```
+
+#### 2.1.7. [build-dependencies]
+
+指定某些依赖仅用于构建脚本:
+
+```text
+[build-dependencies]
+cc = "1.0.3"
+```
+
+平台特定的依赖包：
+
+[target.'cfg(unix)'.build-dependencies]
+cc = "1.0.3"
+
+#### 2.1.8 选择 features
+
+如果依赖包提供了条件性的 features，可以指定使用哪一个:
+
+```text
+[dependencies.awesome]
+version = "1.3.5"
+default-features = false # 不要包含默认的 features，而是通过下面的方式来指定
+features = ["secure-password", "civet"]
+```
+
+#### 2.1.9. 在 Cargo.toml 中重命名依赖
+
+避免在 Rust 代码中使用 use foo as bar  
+依赖某个包的多个版本  
+依赖来自于不同注册服务的同名包  
+
+使用 Cargo 提供的 package key :
+
+```text
+[package]
+name = "mypackage"
+version = "0.0.1"
+
+[dependencies]
+foo = "0.1"
+bar = { git = "https://github.com/example/project", package = "foo" }
+baz = { version = "0.1", registry = "custom", package = "foo" }
+```
+
 ### 2.2. 构建并运行 Cargo 项目
 
 > cargo build: 会创建一个可执行文件 target/debug/hello_rust
@@ -93,7 +332,58 @@ edition = "2021"
 
 > cargo check 的命令。该命令快速检查代码确保其可以编译，但并不产生可执行文件.
 
-### 2.3. 发布（release）构建
+### 2.3. Cargo.toml 格式
+
+Cargo.toml 又被称为清单( manifest )，文件格式是 TOML，每一个清单文件都由以下部分组成：
+
+- cargo-features — 只能用于 nightly版本的 feature  
+- [package] — 定义项目( package )的元信息  
+  + name — 名称  
+  + version — 版本  
+  + authors — 开发作者  
+  + edition — Rust edition.  
+  + rust-version — 支持的最小化 Rust 版本  
+  + description — 描述  
+  + documentation — 文档 URL  
+  + readme — README 文件的路径  
+  + homepage - 主页 URL  
+  + repository — 源代码仓库的 URL  
+  + license — 开源协议 License.  
+  + license-file — License 文件的路径.  
+  + keywords — 项目的关键词  
+  + categories — 项目分类  
+  + workspace — 工作空间 workspace 的路径  
+  + build — 构建脚本的路径  
+  + links — 本地链接库的名称  
+  + exclude — 发布时排除的文件  
+  + include — 发布时包含的文件  
+  + publish — 用于阻止项目的发布  
+  + metadata — 额外的配置信息，用于提供给外部工具  
+  + default-run — [cargo run] 所使用的默认可执行文件( binary )  
+  + autobins — 禁止可执行文件的自动发现  
+  + autoexamples — 禁止示例文件的自动发现  
+  + autotests — 禁止测试文件的自动发现  
+  + autobenches — 禁止 bench 文件的自动发现  
+  + resolver — 设置依赖解析器( dependency resolver)  
+- Cargo Target 列表: (查看 Target 配置 获取详细设置)  
+  + [lib] — Library target 设置.  
+  + [[bin]] — Binary target 设置.  
+  + [[example]] — Example target 设置.  
+  + [[test]] — Test target 设置.  
+  + [[bench]] — Benchmark target 设置.  
+- Dependency tables:  
+  + [dependencies] — 项目依赖包  
+  + [dev-dependencies] — 用于 examples、tests 和 benchmarks 的依赖包  
+  + [build-dependencies] — 用于构建脚本的依赖包  
+  + [target] — 平台特定的依赖包  
+  + [badges] — 用于在注册服务(例如 crates.io ) 上显示项目的一些状态信息，例如当前的维护状态：活跃中、寻找维护者、deprecated  
+  + [features] — features 可以用于条件编译  
+  + [patch] — 推荐使用的依赖覆盖方式  
+  + [replace] — 不推荐使用的依赖覆盖方式 (deprecated).  
+  + [profile] — 编译器设置和优化  
+  + [workspace] — 工作空间的定义  
+
+### 2.4. 发布（release）构建
 
 运行 cargo build --release 并使用 target/release 下的可执行文件进行测试。  
 
