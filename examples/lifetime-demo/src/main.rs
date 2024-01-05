@@ -73,7 +73,6 @@
 //     // let message = get_str_at_location(1000, 10);
 // }
 
-
 // use std::fmt::Display;
 
 // fn main() {
@@ -110,14 +109,72 @@
 //   println!("{}", t);
 // }
 
+// fn main() {
+//     {
+//         let static_string = "I'm in read-only memory";
+//         println!("static_string: {}", static_string);
+
+//     }
+
+//     // 当 `static_string` 超出作用域时，该引用不能再被使用，但是数据依然会存在于 binary 所占用的内存中
+//     println!("static_string reference remains alive: {}", static_string); //  not found in this scope
+// }
+
+// fn main() {
+//     {
+//         let r;
+
+//         {
+//             let x = 5;
+//             r = &x;
+//         }
+
+//         println!("r: {}", r);
+//     }
+// }
+
+// fn main() {
+//     let string1 = String::from("abcd");
+//     let string2 = "xyz";
+
+//     let result = longest(string1.as_str(), string2);
+//     println!("The longest string is {}", result);
+
+//     // fn longest(x: &str, y: &str) -> &str {
+//     //     if x.len() > y.len() {
+//     //         x
+//     //     } else {
+//     //         y
+//     //     }
+//     // }
+
+//     // &i32        // 一个引用
+//     // &'a i32     // 具有显式生命周期的引用
+//     // &'a mut i32 // 具有显式生命周期的可变引用
+
+    // fn longest<'a>(x: &'a str, y: &'a str) -> &'a str {
+    //     if x.len() > y.len() {
+    //         x
+    //     } else {
+    //         y
+    //     }
+    // }
+// }
 
 fn main() {
-    {
-        let static_string = "I'm in read-only memory";
-        println!("static_string: {}", static_string);
-
+    fn longest<'a>(x: &'a str, y: &'a str) -> &'a str {
+        if x.len() > y.len() {
+            x
+        } else {
+            y
+        }
     }
+    
+    let string1 = String::from("long string is long");
 
-    // 当 `static_string` 超出作用域时，该引用不能再被使用，但是数据依然会存在于 binary 所占用的内存中
-    println!("static_string reference remains alive: {}", static_string); //  not found in this scope
+    {
+        let string2 = String::from("xyz");
+        let result = longest(string1.as_str(), string2.as_str());
+        println!("The longest string is {}", result);
+    }
 }

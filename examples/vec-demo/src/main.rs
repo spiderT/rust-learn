@@ -1,140 +1,48 @@
-// #![allow(unused)]
 // fn main() {
-//     // // Vec::new 创建动态数组
-//     // let mut v = Vec::new();
-//     // v.push(1);
-//     // println!("{:?}", v);
-//     // // 使用宏 vec! 来创建数组，能在创建同时给予初始化值：
-//     // let v2 = vec![1, 2, 3];
-//     // println!("{:?}", v2);
-
-//     // // 读取指定位置的元素有两种方式可选：
-//     // // 通过下标索引访问。
-//     // // 使用 get 方法。
-//     // let v3 = vec![1, 2, 3, 4, 5];
-
-//     // let third: &i32 = &v3[2];
-//     // println!("第三个元素是 {}", third);
-
-//     // match v3.get(2) {
-//     //     Some(third) => println!("第三个元素是 {third}"),
-//     //     None => println!("去你的第三个元素，根本没有！"),
-//     // }
-
-//     // // &v[100] 的访问方式会导致程序无情报错退出，因为发生了数组越界访问。
-//     // // v.get 就不会，它在内部做了处理，有值的时候返回 Some(T)，无值的时候返回 None，因此 v.get 的使用方式非常安全。
-//     // let v = vec![1, 2, 3, 4, 5];
-//     // // let does_not_exist = &v[100];
-//     // // println!("{:?}", does_not_exist); // index out of bounds: the len is 5 but the index is 100
-
-//     // let does_not_exist = v.get(100);
-//     // println!("{:?}", does_not_exist); // None
-
-//     // let v = vec![1, 2, 3];
-//     // for i in &v {
-//     //     println!("{i}");
-//     // }
-
-//     // let mut v = vec![1, 2, 3];
-//     // for i in &mut v {
-//     //     *i += 10
-//     // }
-
-//     // println!("{:?}", v); // [11, 12, 13]
-
-// }
-
-// 数组
-// #[derive(Debug)]
-// enum IpAddr {
-//     V4(String),
-//     V6(String),
-// }
-// fn main() {
-//     let v = vec![
-//         IpAddr::V4("127.0.0.1".to_string()),
-//         IpAddr::V6("::1".to_string()),
-//     ];
-
-//     for ip in v {
-//         show_addr(ip)
-//     }
-// }
-
-// fn show_addr(ip: IpAddr) {
-//     println!("{:?}", ip);
-// }
-
-// // 特征对象的实现
-// trait IpAddr {
-//     fn display(&self);
-// }
-
-// struct V4(String);
-// impl IpAddr for V4 {
-//     fn display(&self) {
-//         println!("ipv4: {:?}", self.0)
-//     }
-// }
-// struct V6(String);
-// impl IpAddr for V6 {
-//     fn display(&self) {
-//         println!("ipv6: {:?}", self.0)
-//     }
+//     let mut vec = vec![1, 5, 10, 2, 15];
+//     vec.sort_unstable();
+//     assert_eq!(vec, vec![1, 2, 5, 10, 15]);
 // }
 
 // fn main() {
-//     let v: Vec<Box<dyn IpAddr>> = vec![
-//         Box::new(V4("127.0.0.1".to_string())),
-//         Box::new(V6("::1".to_string())),
-//     ];
-
-//     for ip in v {
-//         ip.display();
-//     }
+//   let mut vec = vec![1.0, 5.6, 10.3, 2.0, 15f32];
+//   vec.sort_unstable();
+//   assert_eq!(vec, vec![1.0, 2.0, 5.6, 10.3, 15f32]);
+//   // 报错
+//   // T: Ord,
+//   // |            ^^^ required by this bound in `core::slice::<impl [T]>::sort_unstable`
+//   // 在浮点数当中，存在一个 NAN 的值，这个值无法与其他的浮点数进行对比，因此，浮点数类型并没有实现全数值可比较 Ord 的特性，而是实现了部分可比较的特性 PartialOrd。
 // }
 
 // fn main() {
-//     let mut v = Vec::with_capacity(10);
-//     v.extend([1, 2, 3]); // 附加数据到 v
-//     println!("Vector 长度是: {}, 容量是: {}", v.len(), v.capacity()); // 3, 10
-
-//     v.reserve(100); // 调整 v 的容量，至少要有 100 的容量
-//     println!(
-//         "Vector（reserve） 长度是: {}, 容量是: {}",
-//         v.len(),
-//         v.capacity()
-//     ); // 3, 103
-
-//     v.shrink_to_fit(); // 释放剩余的容量，一般情况下，不会主动去释放容量
-//     println!(
-//         "Vector（shrink_to_fit） 长度是: {}, 容量是: {}",
-//         v.len(),
-//         v.capacity()
-//     ); // 3, 3
-
+//     let mut vec = vec![1.0, 5.6, 10.3, 2.0, 15f32];
+//     // partial_cmp 这个方法返回一个被Option包裹的Ordering，在self和other两者之间进行比较。
+//     vec.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
+//     assert_eq!(vec, vec![1.0, 2.0, 5.6, 10.3, 15f32]);
 // }
 
-#![allow(unused)]
+#[derive(Debug)]
+struct Person {
+    name: String,
+    age: u32,
+}
+
+impl Person {
+    fn new(name: String, age: u32) -> Person {
+        Person { name, age }
+    }
+}
+
 fn main() {
-    let mut v = vec![1, 2];
-    assert!(!v.is_empty()); // 检查 v 是否为空
+    let mut people = vec![
+        Person::new("Zoe".to_string(), 25),
+        Person::new("Al".to_string(), 60),
+        Person::new("John".to_string(), 1),
+    ];
+    // 定义一个按照年龄倒序排序的对比函数
+    // people.sort_unstable_by(|a, b| b.age.cmp(&a.age)); // 降序
+    people.sort_unstable_by(|a, b| a.age.cmp(&b.age)); // 升序
 
-    v.insert(2, 3); // 在指定索引插入数据，索引值不能大于 v 的长度， v: [1, 2, 3]
-    assert_eq!(v.remove(1), 2); // 移除指定位置的元素并返回, v: [1, 3]
-    assert_eq!(v.pop(), Some(3)); // 删除并返回 v 尾部的元素，v: [1]
-    assert_eq!(v.pop(), Some(1)); // v: []
-    assert_eq!(v.pop(), None); // 记得 pop 方法返回的是 Option 枚举值
-    v.clear(); // 清空 v, v: []
-
-    let mut v1 = [11, 22].to_vec(); // append 操作会导致 v1 清空数据，增加可变声明
-    v.append(&mut v1); // 将 v1 中的所有元素附加到 v 中, v1: []
-    v.truncate(1); // 截断到指定长度，多余的元素被删除, v: [11]
-    v.retain(|x| *x > 10); // 保留满足条件的元素，即删除不满足条件的元素
-
-    let mut v = vec![11, 22, 33, 44, 55];
-    // 删除指定范围的元素，同时获取被删除元素的迭代器, v: [11, 55], m: [22, 33, 44]
-    let mut m: Vec<_> = v.drain(1..=3).collect();
-
-    let v2 = m.split_off(1); // 指定索引处切分成两个 vec, m: [22], v2: [33, 44]
+    // 有些变量通过实现Debug这个trait打印，比如Slices、vectors、options，此时，占位符不再是“{}”，而是“{:?}”。字符串类型已经实现了Debug trait，也可以通过这种方式打印
+    println!("{:?}", people); // [Person { name: "Al", age: 60 }, Person { name: "Zoe", age: 25 }, Person { name: "John", age: 1 }]
 }

@@ -54,9 +54,55 @@ Rust 程序设计语言：https://doc.rust-lang.org/book/
   - [9. 枚举](#9-枚举)
   - [10. match 控制流](#10-match-控制流)
   - [11. if let 控制流](#11-if-let-控制流)
-  - [12. 模块管理](#12-模块管理)
-    - [12.1. 包和 Crate](#121-包和-crate)
-    - [12.2 定义模块来控制作用域与私有性](#122-定义模块来控制作用域与私有性)
+  - [12. 泛型和特征](#12-泛型和特征)
+    - [12.1. 结构体中使用泛型](#121-结构体中使用泛型)
+    - [12.2. 枚举中使用泛型](#122-枚举中使用泛型)
+    - [12.3. 方法中使用泛型](#123-方法中使用泛型)
+    - [12.4. const 泛型（Rust 1.51 版本引入的重要特性）](#124-const-泛型rust-151-版本引入的重要特性)
+      - [12.4.1 const 泛型表达式](#1241-const-泛型表达式)
+    - [12.5. 泛型的性能](#125-泛型的性能)
+    - [12.6. 特征 Trait](#126-特征-trait)
+      - [12.6.1. 为类型实现特征](#1261-为类型实现特征)
+      - [12.6.2. 特征定义与实现的位置(孤儿规则)](#1262-特征定义与实现的位置孤儿规则)
+      - [12.6.3. 默认实现](#1263-默认实现)
+      - [12.6.4. 使用特征作为函数参数](#1264-使用特征作为函数参数)
+      - [12.6.5. 特征约束(trait bound)](#1265-特征约束trait-bound)
+      - [12.6.6. 多重约束](#1266-多重约束)
+      - [12.6.7. Where 约束](#1267-where-约束)
+      - [12.6.8. 使用特征约束有条件地实现方法或特征](#1268-使用特征约束有条件地实现方法或特征)
+      - [12.6.9. 函数返回中的 impl Trait](#1269-函数返回中的-impl-trait)
+      - [12.6.10. 为自定义类型实现 + 操作](#12610-为自定义类型实现--操作)
+    - [12.7. 特征对象](#127-特征对象)
+  - [13. 动态数组 Vector](#13-动态数组-vector)
+    - [13.1. 创建动态数组](#131-创建动态数组)
+    - [13.2. 更新 Vector](#132-更新-vector)
+    - [13.3. 从 Vector 中读取元素](#133-从-vector-中读取元素)
+    - [13.4. 同时借用多个数组元素](#134-同时借用多个数组元素)
+    - [13.5. 迭代遍历 Vector 中的元素](#135-迭代遍历-vector-中的元素)
+    - [13.6. 存储不同类型的元素](#136-存储不同类型的元素)
+    - [13.7. Vector 常用方法](#137-vector-常用方法)
+    - [13.8. Vector 的排序](#138-vector-的排序)
+  - [14. HashMap](#14-hashmap)
+    - [14.1. 创建 HashMap](#141-创建-hashmap)
+    - [14.2. 所有权转移](#142-所有权转移)
+    - [14.3. 查询 HashMap](#143-查询-hashmap)
+    - [14.4. 更新 HashMap 中的值](#144-更新-hashmap-中的值)
+    - [14.5. 哈希函数](#145-哈希函数)
+  - [15. 生命周期](#15-生命周期)
+    - [15.1. 悬垂指针和生命周期](#151-悬垂指针和生命周期)
+    - [15.2. 借用检查](#152-借用检查)
+    - [15.3. 函数中的生命周期](#153-函数中的生命周期)
+  - [16. 方法 Method](#16-方法-method)
+    - [16.1. 定义方法](#161-定义方法)
+    - [16.2. self、\&self 和 \&mut self](#162-selfself-和-mut-self)
+    - [16.3. 方法名跟结构体字段名相同](#163-方法名跟结构体字段名相同)
+    - [16.4. 带有多个参数的方法](#164-带有多个参数的方法)
+    - [16.5. 关联函数](#165-关联函数)
+    - [16.6. 多个 impl 定义](#166-多个-impl-定义)
+    - [16.7. 为枚举实现方法](#167-为枚举实现方法)
+  - [x. 模块管理](#x-模块管理)
+    - [x.1. 包和 Crate](#x1-包和-crate)
+    - [x.2 定义模块来控制作用域与私有性](#x2-定义模块来控制作用域与私有性)
 
 ## 1. Rust 的安装(Mac)
 
@@ -1477,7 +1523,1119 @@ if let Some(max) = config_max {
 }
 ```
 
-## 12. 模块管理
+## 12. 泛型和特征
+
+泛型参数的名称你可以任意起，但是出于惯例，我们都用 T ( T 是 type 的首字母)来作为首选。  
+
+使用泛型参数，必需在使用前对其进行声明：
+
+```rust
+fn largest<T>(list: &[T]) -> T {
+```
+
+### 12.1. 结构体中使用泛型
+
+结构体中的字段类型也可以用泛型来定义, 有两点需要特别的注意：  
+
+- 提前声明，跟泛型函数定义类似，首先我们在使用泛型参数之前必需要进行声明 Point<T>，接着就可以在结构体的字段类型中使用 T 来替代具体的类型
+- x 和 y 是相同的类型
+
+```rust
+struct Point<T> {
+    x: T,
+    y: T,
+}
+
+fn main() {
+    let integer = Point { x: 5, y: 10 };
+    let float = Point { x: 1.0, y: 4.0 };
+}
+```
+
+### 12.2. 枚举中使用泛型
+
+
+
+```rust
+enum Option<T> {
+    Some(T),
+    None,
+}
+```
+
+### 12.3. 方法中使用泛型
+
+使用泛型参数前，依然需要提前声明：impl<T>，只有提前声明了，我们才能在Point<T>中使用它，这样 Rust 就知道 Point 的尖括号中的类型是泛型而不是具体类型。需要注意的是，这里的 Point<T> 不再是泛型声明，而是一个完整的结构体类型，因为我们定义的结构体就是 Point<T> 而不再是 Point。
+
+```rust
+struct Point<T> {
+    x: T,
+    y: T,
+}
+
+impl<T> Point<T> {
+    fn x(&self) -> &T {
+        &self.x
+    }
+}
+
+fn main() {
+    let p = Point { x: 5, y: 10 };
+
+    println!("p.x = {}", p.x());
+}
+```
+
+### 12.4. const 泛型（Rust 1.51 版本引入的重要特性）
+
+定义了一个类型为 [T; N] 的数组，其中 T 是一个基于类型的泛型参数， N 这个泛型参数，它是一个基于值的泛型参数！因为它用来替代的是数组的长度。  
+
+N 就是 const 泛型，定义的语法是 const N: usize，表示 const 泛型 N ，它基于的值类型是 usize。  
+对 T 加一个限制 std::fmt::Debug，该限制表明 T 可以用在 println!("{:?}", arr) 中，因为 {:?} 形式的格式化输出需要 arr 实现该特征。  
+
+```rust
+fn display_array<T: std::fmt::Debug, const N: usize>(arr: [T; N]) {
+    println!("{:?}", arr);
+}
+fn main() {
+    let arr: [i32; 3] = [1, 2, 3];
+    display_array(arr);
+
+    let arr: [i32; 2] = [1, 2];
+    display_array(arr);
+}
+```
+
+#### 12.4.1 const 泛型表达式
+
+假设我们某段代码需要在内存很小的平台上工作，因此需要限制函数参数占用的内存大小，此时就可以使用 const 泛型表达式来实现：
+
+```rust
+// 目前只能在nightly版本下使用
+#![allow(incomplete_features)]
+#![feature(generic_const_exprs)]
+
+fn something<T>(val: T)
+where
+    Assert<{ core::mem::size_of::<T>() < 768 }>: IsTrue,
+    //       ^-----------------------------^ 这里是一个 const 表达式，换成其它的 const 表达式也可以
+{
+    //
+}
+
+fn main() {
+    something([0u8; 0]); // ok
+    something([0u8; 512]); // ok
+    something([0u8; 1024]); // 编译错误，数组长度是1024字节，超过了768字节的参数长度限制
+}
+
+// ---
+
+pub enum Assert<const CHECK: bool> {
+    //
+}
+
+pub trait IsTrue {
+    //
+}
+
+impl IsTrue for Assert<true> {
+    //
+}
+```
+
+### 12.5. 泛型的性能
+
+Rust 通过在编译时进行泛型代码的 单态化(monomorphization)来保证效率。单态化是一个通过填充编译时使用的具体类型，将通用代码转换为特定代码的过程。  
+
+编译器所做的工作正好与我们创建泛型函数的步骤相反，编译器寻找所有泛型代码被调用的位置并针对具体类型生成代码。  
+
+一个使用标准库中 Option 枚举的例子：
+
+```rust
+let integer = Some(5);
+let float = Some(5.0);
+```
+
+当 Rust 编译这些代码的时候，它会进行单态化。编译器会读取传递给 Option<T> 的值并发现有两种 Option<T>：一种对应 i32 另一种对应 f64。为此，它会将泛型定义 Option<T> 展开为 Option_i32 和 Option_f64，接着将泛型定义替换为这两个具体的定义。
+
+编译器生成的单态化版本的代码看起来像这样：
+
+```rust
+enum Option_i32 {
+    Some(i32),
+    None,
+}
+
+enum Option_f64 {
+    Some(f64),
+    None,
+}
+
+fn main() {
+    let integer = Option_i32::Some(5);
+    let float = Option_f64::Some(5.0);
+}
+```
+
+### 12.6. 特征 Trait
+
+如果不同的类型具有相同的行为，那么我们就可以定义一个特征，然后为这些类型实现该特征。定义特征是把一些方法组合在一起，目的是定义一个实现某些目标所必需的行为的集合。  
+
+```rust
+pub trait Summary {
+    fn summarize(&self) -> String;
+}
+```
+
+这里使用 trait 关键字来声明一个特征，Summary 是特征名。在大括号中定义了该特征的所有方法，在这个例子中是： fn summarize(&self) -> String。
+
+#### 12.6.1. 为类型实现特征
+
+为 Post 和 Weibo 实现 Summary 特征：
+
+```rust
+pub trait Summary {
+    fn summarize(&self) -> String;
+}
+pub struct Post {
+    pub title: String, // 标题
+    pub author: String, // 作者
+    pub content: String, // 内容
+}
+
+impl Summary for Post {
+    fn summarize(&self) -> String {
+        format!("文章{}, 作者是{}", self.title, self.author)
+    }
+}
+
+pub struct Weibo {
+    pub username: String,
+    pub content: String
+}
+
+impl Summary for Weibo {
+    fn summarize(&self) -> String {
+        format!("{}发表了微博{}", self.username, self.content)
+    }
+}
+
+fn main() {
+    let post = Post{title: "Rust语言简介".to_string(),author: "Sunface".to_string(), content: "Rust棒极了!".to_string()};
+    let weibo = Weibo{username: "sunface".to_string(),content: "好像微博没Tweet好用".to_string()};
+
+    println!("{}",post.summarize());
+    println!("{}",weibo.summarize());
+}
+```
+
+#### 12.6.2. 特征定义与实现的位置(孤儿规则)
+
+关于特征实现与定义的位置，有一条非常重要的原则：如果你想要为类型 A 实现特征 T，那么 A 或者 T 至少有一个是在当前作用域中定义的！ 例如我们可以为上面的 Post 类型实现标准库中的 Display 特征，这是因为 Post 类型定义在当前的作用域中。同时，我们也可以在当前包中为 String 类型实现 Summary 特征，因为 Summary 定义在当前作用域中。
+
+但是你无法在当前作用域中，为 String 类型实现 Display 特征，因为它们俩都定义在标准库中，其定义所在的位置都不在当前作用域，该规则被称为孤儿规则，可以确保其它人编写的代码不会破坏你的代码。
+
+#### 12.6.3. 默认实现
+
+可以在特征中定义具有默认实现的方法，这样其它类型无需再实现该方法，或者也可以选择重载该方法：
+
+```rust
+pub trait Summary {
+    fn summarize(&self) -> String {
+        String::from("(Read more...)")
+    }
+}
+```
+
+上面为 Summary 定义了一个默认实现，下面我们编写段代码来测试下：
+
+```rust
+impl Summary for Post {}
+
+impl Summary for Weibo {
+    fn summarize(&self) -> String {
+        format!("{}发表了微博{}", self.username, self.content)
+    }
+}
+```
+
+可以看到，Post 选择了默认实现，而 Weibo 重载了该方法，调用和输出如下：
+
+```rust
+    println!("{}",post.summarize());
+    println!("{}",weibo.summarize());
+(Read more...)
+sunface发表了微博好像微博没Tweet好用
+```
+
+#### 12.6.4. 使用特征作为函数参数
+
+```rust
+pub fn notify(item: &impl Summary) {
+    println!("Breaking news! {}", item.summarize());
+}
+```
+
+impl Summary，的意思是 实现了Summary特征 的 item 参数。
+
+你可以使用任何实现了 Summary 特征的类型作为该函数的参数，同时在函数体内，还可以调用该特征的方法，例如 summarize 方法。具体的说，可以传递 Post 或 Weibo 的实例来作为参数，而其它类如 String 或者 i32 的类型则不能用做该函数的参数，因为它们没有实现 Summary 特征。
+
+#### 12.6.5. 特征约束(trait bound)
+
+impl Trait 这种语法只是一个语法糖：
+
+```rust
+pub fn notify<T: Summary>(item: &T) {
+    println!("Breaking news! {}", item.summarize());
+}
+```
+
+真正的完整书写形式如上所述，形如 T: Summary 被称为特征约束。
+
+在简单的场景下 impl Trait 这种语法糖就足够使用，但是对于复杂的场景，特征约束可以让我们拥有更大的灵活性和语法表现能力，例如一个函数接受两个 impl Summary 的参数：
+
+```rust
+pub fn notify(item1: &impl Summary, item2: &impl Summary) {}
+```
+
+如果函数两个参数是不同的类型，那么上面的方法很好，只要这两个类型都实现了 Summary 特征即可。但是如果我们想要强制函数的两个参数是同一类型呢？上面的语法就无法做到这种限制，此时我们只能使特征约束来实现：
+
+```rust
+pub fn notify<T: Summary>(item1: &T, item2: &T) {}
+```
+
+泛型类型 T 说明了 item1 和 item2 必须拥有同样的类型，同时 T: Summary 说明了 T 必须实现 Summary 特征。
+
+#### 12.6.6. 多重约束
+
+除了单个约束条件，我们还可以指定多个约束条件，例如除了让参数实现 Summary 特征外，还可以让参数实现 Display 特征以控制它的格式化输出：
+
+```rust
+pub fn notify(item: &(impl Summary + Display)) {}
+```
+
+除了上述的语法糖形式，还能使用特征约束的形式：
+
+```rust
+pub fn notify<T: Summary + Display>(item: &T) {}
+```
+
+通过这两个特征，就可以使用 item.summarize 方法，以及通过 println!("{}", item) 来格式化输出 item。
+
+#### 12.6.7. Where 约束
+
+当特征约束变得很多时，函数的签名将变得很复杂：
+
+```rust
+fn some_function<T: Display + Clone, U: Clone + Debug>(t: &T, u: &U) -> i32 {}
+```
+
+通过 where对其做一些形式上的改进
+
+```rust
+fn some_function<T, U>(t: &T, u: &U) -> i32
+    where T: Display + Clone,
+          U: Clone + Debug
+{}
+```
+
+#### 12.6.8. 使用特征约束有条件地实现方法或特征
+
+特征约束，可以让我们在指定类型 + 指定特征的条件下去实现方法，例如：
+
+```rust
+use std::fmt::Display;
+
+struct Pair<T> {
+    x: T,
+    y: T,
+}
+
+impl<T> Pair<T> {
+    fn new(x: T, y: T) -> Self {
+        Self {
+            x,
+            y,
+        }
+    }
+}
+
+impl<T: Display + PartialOrd> Pair<T> {
+    fn cmp_display(&self) {
+        if self.x >= self.y {
+            println!("The largest member is x = {}", self.x);
+        } else {
+            println!("The largest member is y = {}", self.y);
+        }
+    }
+}
+```
+
+cmp_display 方法，并不是所有的 Pair<T> 结构体对象都可以拥有，只有 T 同时实现了 Display + PartialOrd 的 Pair<T> 才可以拥有此方法。  
+该函数可读性会更好，因为泛型参数、参数、返回值都在一起，可以快速的阅读，同时每个泛型参数的特征也在新的代码行中通过特征约束进行了约束。  
+
+也可以有条件地实现特征, 例如，标准库为任何实现了 Display 特征的类型实现了 ToString 特征：
+
+```rust
+impl<T: Display> ToString for T {
+    // --snip--
+}
+```
+
+我们可以对任何实现了 Display 特征的类型调用由 ToString 定义的 to_string 方法。例如，可以将整型转换为对应的 String 值，因为整型实现了 Display：
+
+```rust
+let s = 3.to_string();
+```
+
+#### 12.6.9. 函数返回中的 impl Trait
+
+通过 impl Trait 来说明一个函数返回了一个类型，该类型实现了某个特征：
+
+```rust
+fn returns_summarizable() -> impl Summary {
+    Weibo {
+        username: String::from("sunface"),
+        content: String::from("m1 max太厉害了，电脑再也不会卡"),
+    }
+}
+```
+
+impl Trait 形式的返回值，在一种场景下非常非常有用，那就是返回的真实类型非常复杂，你不知道该怎么声明时(毕竟 Rust 要求你必须标出所有的类型)，此时就可以用 impl Trait 的方式简单返回。  
+
+这种返回值方式有一个很大的限制：只能有一个具体的类型.  
+
+#### 12.6.10. 为自定义类型实现 + 操作
+
+
+
+```rust
+use std::ops::Add;
+
+// 为Point结构体派生Debug特征，用于格式化输出
+#[derive(Debug)]
+struct Point<T: Add<T, Output = T>> { //限制类型T必须实现了Add特征，否则无法进行+操作。
+    x: T,
+    y: T,
+}
+
+impl<T: Add<T, Output = T>> Add for Point<T> {
+    type Output = Point<T>;
+
+    fn add(self, p: Point<T>) -> Point<T> {
+        Point{
+            x: self.x + p.x,
+            y: self.y + p.y,
+        }
+    }
+}
+
+fn add<T: Add<T, Output=T>>(a:T, b:T) -> T {
+    a + b
+}
+
+fn main() {
+    let p1 = Point{x: 1.1f32, y: 1.1f32};
+    let p2 = Point{x: 2.1f32, y: 2.1f32};
+    println!("{:?}", add(p1, p2));
+
+    let p3 = Point{x: 1i32, y: 1i32};
+    let p4 = Point{x: 2i32, y: 2i32};
+    println!("{:?}", add(p3, p4));
+}
+```
+
+### 12.7. 特征对象
+
+
+
+
+
+## 13. 动态数组 Vector
+
+动态数组只能存储相同类型的元素，如果你想存储不同类型的元素，可以使用之前讲过的枚举类型或者特征对象。
+
+### 13.1. 创建动态数组
+
+v 被显式地声明了类型 Vec<i32>
+
+> Vec::new
+
+```rust
+let v: Vec<i32> = Vec::new();
+```
+
+```rust
+let mut v = Vec::new();
+v.push(1);
+```
+
+此时，v 就无需手动声明类型，因为编译器通过 v.push(1)，推测出 v 中的元素类型是 i32，因此推导出 v 的类型是 Vec<i32>。
+
+如果预先知道要存储的元素个数，可以使用 Vec::with_capacity(capacity) 创建动态数组，这样可以避免因为插入大量新数据导致频繁的内存分配和拷贝，提升性能.
+
+> vec![]
+
+使用宏 vec! 来创建数组，与 Vec::new 有所不同，前者能在创建同时给予初始化值：
+
+```rust
+let v = vec![1, 2, 3];
+```
+
+此处的 v 也无需标注类型，编译器只需检查它内部的元素即可自动推导出 v 的类型是 Vec<i32> （Rust 中，整数默认类型是 i32，在数值类型中有详细介绍）。
+
+### 13.2. 更新 Vector
+
+向数组尾部添加元素，可以使用 push 方法：
+
+```rust
+let mut v = Vec::new();
+v.push(1);
+```
+
+与其它类型一样，必须将 v 声明为 mut 后，才能进行修改。
+
+### 13.3. 从 Vector 中读取元素
+
+读取指定位置的元素有两种方式可选：
+
+- 通过下标索引访问。
+- 使用 get 方法。
+
+```rust
+let v = vec![1, 2, 3, 4, 5];
+
+let third: &i32 = &v[2];
+println!("第三个元素是 {}", third);
+
+match v.get(2) {
+    Some(third) => println!("第三个元素是 {third}"),
+    None => println!("去你的第三个元素，根本没有！"),
+}
+```
+
+> 集合类型的索引下标都是从 0 开始，&v[2] 表示借用 v 中的第三个元素，最终会获得该元素的引用。而 v.get(2) 也是访问第三个元素，但是有所不同的是，它返回了 Option<&T>，因此还需要额外的 match 来匹配解构出具体的值。
+
+> 下标索引与 .get 的区别.
+
+涉及到数组越界的问题
+
+```rust
+let v = vec![1, 2, 3, 4, 5];
+
+let does_not_exist = &v[100];
+let does_not_exist = v.get(100);
+```
+
+运行以上代码，&v[100] 的访问方式会导致程序无情报错退出，因为发生了数组越界访问。 但是 v.get 就不会，它在内部做了处理，有值的时候返回 Some(T)，无值的时候返回 None，因此 v.get 的使用方式非常安全。
+
+### 13.4. 同时借用多个数组元素
+
+first = &v[0] 进行了不可变借用，v.push 进行了可变借用，如果 first 在 v.push 之后不再使用，那么该段代码可以成功编译，原因是引用的作用域。
+
+```rust
+let mut v = vec![1, 2, 3, 4, 5];
+
+let first = &v[0];
+
+v.push(6);
+
+println!("The first element is: {first}");
+//  ----- immutable borrow later used here // 不可变借用在这里被使用
+```
+
+原因在于：数组的大小是可变的，当旧数组的大小不够用时，Rust 会重新分配一块更大的内存空间，然后把旧数组拷贝过来。这种情况下，之前的引用显然会指向一块无效的内存。
+
+### 13.5. 迭代遍历 Vector 中的元素
+
+使用迭代的方式去遍历数组，这种方式比用下标的方式去遍历数组更安全也更高效（每次下标访问都会触发数组边界检查）：
+
+```rust
+let v = vec![1, 2, 3];
+for i in &v {
+    println!("{i}");
+}
+```
+
+也可以在迭代过程中，修改 Vector 中的元素：
+
+```rust
+let mut v = vec![1, 2, 3];
+for i in &mut v {
+    *i += 10
+}
+```
+
+### 13.6. 存储不同类型的元素
+
+通过使用枚举类型和特征对象来实现不同类型元素的存储。
+
+> 枚举类型
+
+```rust
+#[derive(Debug)]
+enum IpAddr {
+    V4(String),
+    V6(String)
+}
+fn main() {
+    let v = vec![
+        IpAddr::V4("127.0.0.1".to_string()),
+        IpAddr::V6("::1".to_string())
+    ];
+
+    for ip in v {
+        show_addr(ip)
+    }
+}
+
+fn show_addr(ip: IpAddr) {
+    println!("{:?}",ip);
+}
+```
+
+> 特征对象
+
+```rust
+trait IpAddr {
+    fn display(&self);
+}
+
+struct V4(String);
+impl IpAddr for V4 {
+    fn display(&self) {
+        println!("ipv4: {:?}",self.0)
+    }
+}
+struct V6(String);
+impl IpAddr for V6 {
+    fn display(&self) {
+        println!("ipv6: {:?}",self.0)
+    }
+}
+
+fn main() {
+    let v: Vec<Box<dyn IpAddr>> = vec![
+        Box::new(V4("127.0.0.1".to_string())),
+        Box::new(V6("::1".to_string())),
+    ];
+
+    for ip in v {
+        ip.display();
+    }
+}
+```
+
+在实际使用场景中，特征对象数组要比枚举数组常见很多，主要原因在于特征对象非常灵活，而编译器对枚举的限制较多，且无法动态增加类型。
+
+### 13.7. Vector 常用方法
+
+> 初始化 vec 的方式
+
+```rust
+fn main() {
+    let v = vec![0; 3];   // 默认值为 0，初始长度为 3
+    let v_from = Vec::from([0, 0, 0]);
+    assert_eq!(v, v_from);
+}
+```
+
+动态数组意味着我们增加元素时，如果容量不足就会导致 vector 扩容（目前的策略是重新申请一块 2 倍大小的内存，再将所有元素拷贝到新的内存位置，同时更新指针数据），显然，当频繁扩容或者当元素数量较多且需要扩容时，大量的内存拷贝会降低程序的性能。
+
+可以考虑在初始化时就指定一个实际的预估容量，尽量减少可能的内存拷贝：
+
+```rust
+fn main() {
+    let mut v = Vec::with_capacity(10);
+    v.extend([1, 2, 3]);    // 附加数据到 v
+    println!("Vector 长度是: {}, 容量是: {}", v.len(), v.capacity());
+
+    v.reserve(100);        // 调整 v 的容量，至少要有 100 的容量
+    println!("Vector（reserve） 长度是: {}, 容量是: {}", v.len(), v.capacity());
+
+    v.shrink_to_fit();     // 释放剩余的容量，一般情况下，不会主动去释放容量
+    println!("Vector（shrink_to_fit） 长度是: {}, 容量是: {}", v.len(), v.capacity());
+}
+```
+
+### 13.8. Vector 的排序
+
+两种排序算法，分别为稳定的排序 sort 和 sort_by，以及非稳定排序 sort_unstable 和 sort_unstable_by。
+
+ 非稳定 并不是指排序算法本身不稳定，而是指在排序过程中对相等元素的处理方式。在 稳定 排序算法里，对相等的元素，不会对其进行重新排序。而在 不稳定 的算法里则不保证这点。
+
+总体而言，非稳定 排序的算法的速度会优于 稳定 排序算法，同时，稳定 排序还会额外分配原数组一半的空间。
+
+> 整数数组的排序
+
+以下是对整数列进行排序的例子。
+
+```rust
+fn main() {
+    let mut vec = vec![1, 5, 10, 2, 15];    
+    vec.sort_unstable();    
+    assert_eq!(vec, vec![1, 2, 5, 10, 15]);
+}
+```
+
+> 浮点数数组的排序
+
+原来，在浮点数当中，存在一个 NAN 的值，这个值无法与其他的浮点数进行对比，因此，浮点数类型并没有实现全数值可比较 Ord 的特性，而是实现了部分可比较的特性 PartialOrd。
+
+如此，如果我们确定在我们的浮点数数组当中，不包含 NAN 值，那么我们可以使用 partial_cmp 来作为大小判断的依据。
+
+```rust
+fn main() {
+    let mut vec = vec![1.0, 5.6, 10.3, 2.0, 15f32];    
+    vec.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());    
+    assert_eq!(vec, vec![1.0, 2.0, 5.6, 10.3, 15f32]);
+}
+```
+
+> 对结构体数组进行排序
+
+```rust
+#[derive(Debug)]
+struct Person {
+    name: String,
+    age: u32,
+}
+
+impl Person {
+    fn new(name: String, age: u32) -> Person {
+        Person { name, age }
+    }
+}
+
+fn main() {
+    let mut people = vec![
+        Person::new("Zoe".to_string(), 25),
+        Person::new("Al".to_string(), 60),
+        Person::new("John".to_string(), 1),
+    ];
+    // 定义一个按照年龄倒序排序的对比函数
+    people.sort_unstable_by(|a, b| b.age.cmp(&a.age));
+
+    println!("{:?}", people);
+}
+```
+
+## 14. HashMap
+
+HashMap 也是 Rust 标准库中提供的集合类型，但是又与动态数组不同，HashMap 中存储的是一一映射的 KV 键值对，并提供了平均复杂度为 O(1) 的查询方法，当我们希望通过一个 Key 去查询值时，该类型非常有用。
+
+Rust 中哈希类型（哈希映射）为 HashMap<K,V>，在其它语言中，也有类似的数据结构，例如 hash map，map，object，hash table，字典 等等。
+
+### 14.1. 创建 HashMap
+
+跟创建动态数组 Vec 的方法类似，可以使用 new 方法来创建 HashMap，然后通过 insert 方法插入键值对。
+
+> 使用 new 方法创建
+
+```rust
+use std::collections::HashMap;
+
+// 创建一个HashMap，用于存储宝石种类和对应的数量
+let mut my_gems = HashMap::new();
+
+// 将宝石类型和对应的数量写入表中
+my_gems.insert("红宝石", 1);
+my_gems.insert("蓝宝石", 2);
+my_gems.insert("河边捡的误以为是宝石的破石头", 18);
+```
+
+使用 HashMap 需要手动通过 use ... 从标准库中引入到我们当前的作用域中来，之前使用另外两个集合类型 String 和 Vec 时，我们是否有手动引用过？答案是 No，因为 HashMap 并没有包含在 Rust 的 prelude 中（Rust 为了简化用户使用，提前将最常用的类型自动引入到作用域中）。
+
+所有的集合类型都是动态的，意味着它们没有固定的内存大小，因此它们底层的数据都存储在内存堆上，然后通过一个存储在栈中的引用类型来访问。同时，跟其它集合类型一致，HashMap 也是内聚性的，即所有的 K 必须拥有同样的类型，V 也是如此。
+
+跟 Vec 一样，如果预先知道要存储的 KV 对个数，可以使用 HashMap::with_capacity(capacity) 创建指定大小的 HashMap，避免频繁的内存分配和拷贝，提升性能。
+
+> 使用迭代器和 collect 方法创建
+
+into_iter 方法将列表转为迭代器，接着通过 collect 进行收集，不过需要注意的是，collect 方法在内部实际上支持生成多种类型的目标集合，因此我们需要通过类型标注 HashMap<_,_> 来告诉编译器：请帮我们收集为 HashMap 集合类型
+
+```rust
+fn main() {
+    use std::collections::HashMap;
+
+    let teams_list = vec![
+        ("中国队".to_string(), 100),
+        ("美国队".to_string(), 10),
+        ("日本队".to_string(), 50),
+    ];
+
+    let teams_map: HashMap<_,_> = teams_list.into_iter().collect();
+    
+    println!("{:?}",teams_map)
+}
+```
+
+### 14.2. 所有权转移
+
+- 若类型实现 Copy 特征，该类型会被复制进 HashMap，因此无所谓所有权
+- 若没实现 Copy 特征，所有权将被转移给 HashMap 中
+
+```rust
+fn main() {
+    use std::collections::HashMap;
+
+    let name = String::from("Sunface");
+    let age = 18;
+
+    let mut handsome_boys = HashMap::new();
+    handsome_boys.insert(name, age);
+
+    println!("因为过于无耻，{}已经被从帅气男孩名单中除名", name);
+    println!("还有，他的真实年龄远远不止{}岁", age);
+}
+```
+
+运行代码，报错如下：
+
+```rust
+error[E0382]: borrow of moved value: `name`
+  --> src/main.rs:10:32
+   |
+4  |     let name = String::from("Sunface");
+   |         ---- move occurs because `name` has type `String`, which does not implement the `Copy` trait
+...
+8  |     handsome_boys.insert(name, age);
+   |                          ---- value moved here
+9  |
+10 |     println!("因为过于无耻，{}已经被除名", name);
+   |                                            ^^^^ value borrowed here after move
+```
+
+提示很清晰，name 是 String 类型，因此它受到所有权的限制，在 insert 时，它的所有权被转移给 handsome_boys，所以最后在使用时，会遇到这个无情但是意料之中的报错。
+
+### 14.3. 查询 HashMap
+
+通过 get 方法可以获取元素：
+
+```rust
+use std::collections::HashMap;
+
+let mut scores = HashMap::new();
+
+scores.insert(String::from("Blue"), 10);
+scores.insert(String::from("Yellow"), 50);
+
+let team_name = String::from("Blue");
+let score: Option<&i32> = scores.get(&team_name);
+```
+
+- get 方法返回一个 Option<&i32> 类型：当查询不到时，会返回一个 None，查询到时返回 Some(&i32)
+- &i32 是对 HashMap 中值的借用，如果不使用借用，可能会发生所有权的转移
+
+如果我们想直接获得值类型的 score 该怎么办，答案简约但不简单:
+
+```rust
+let score: i32 = scores.get(&team_name).copied().unwrap_or(0);
+```
+
+### 14.4. 更新 HashMap 中的值
+
+```rust
+fn main() {
+    use std::collections::HashMap;
+
+    let mut scores = HashMap::new();
+
+    scores.insert("Blue", 10);
+
+    // 覆盖已有的值
+    let old = scores.insert("Blue", 20);
+    assert_eq!(old, Some(10));
+
+    // 查询新插入的值
+    let new = scores.get("Blue");
+    assert_eq!(new, Some(&20));
+
+    // 查询Yellow对应的值，若不存在则插入新值
+    let v = scores.entry("Yellow").or_insert(5);
+    assert_eq!(*v, 5); // 不存在，插入5
+
+    // 查询Yellow对应的值，若不存在则插入新值
+    let v = scores.entry("Yellow").or_insert(50);
+    assert_eq!(*v, 5); // 已经存在，因此50没有插入
+}
+```
+
+常用场景如下：查询某个 key 对应的值，若不存在则插入新值，若存在则对已有的值进行更新，例如在文本中统计词语出现的次数：
+
+```rust
+use std::collections::HashMap;
+
+let text = "hello world wonderful world";
+
+let mut map = HashMap::new();
+// 根据空格来切分字符串(英文单词都是通过空格切分)
+for word in text.split_whitespace() {
+    let count = map.entry(word).or_insert(0);
+    *count += 1;
+}
+
+println!("{:?}", map);
+```
+
+上面代码中，新建一个 map 用于保存词语出现的次数，插入一个词语时会进行判断：若之前没有插入过，则使用该词语作 Key，插入次数 0 作为 Value，若之前插入过则取出之前统计的该词语出现的次数，对其加一。
+
+有两点值得注意：
+
+- or_insert 返回了 &mut v 引用，因此可以通过该可变引用直接修改 map 中对应的值
+- 使用 count 引用时，需要先进行解引用 *count，否则会出现类型不匹配
+
+### 14.5. 哈希函数
+
+```rust
+use std::hash::BuildHasherDefault;
+use std::collections::HashMap;
+// 引入第三方的哈希函数
+use twox_hash::XxHash64;
+
+// 指定HashMap使用第三方的哈希函数XxHash64
+let mut hash: HashMap<_, _, BuildHasherDefault<XxHash64>> = Default::default();
+hash.insert(42, "the answer");
+assert_eq!(hash.get(&42), Some(&"the answer"));
+```
+
+目前，HashMap 使用的哈希函数是 SipHash，它的性能不是很高，但是安全性很高。SipHash 在中等大小的 Key 上，性能相当不错，但是对于小型的 Key （例如整数）或者大型 Key （例如字符串）来说，性能还是不够好。
+
+## 15. 生命周期
+
+### 15.1. 悬垂指针和生命周期
+
+生命周期的主要作用是避免悬垂引用，它会导致程序引用了本不该引用的数据：
+
+```rust
+{
+    let r;
+
+    {
+        let x = 5;
+        r = &x;
+    }
+
+    println!("r: {}", r);
+}
+```
+
+有几点值得注意:
+
+- let r; 的声明方式貌似存在使用 null 的风险，实际上，当我们不初始化它就使用时，编译器会给予报错
+- r 引用了内部花括号中的 x 变量，但是 x 会在内部花括号 } 处被释放，因此回到外部花括号后，r 会引用一个无效的 x  
+
+此处 r 就是一个悬垂指针，它引用了提前被释放的变量 x，可以预料到，这段代码会报错：
+
+```rust
+error[E0597]: `x` does not live long enough // `x` 活得不够久
+  --> src/main.rs:
+   |
+   |             r = &x;
+   |                 ^^ borrowed value does not live long enough // 被借用的 `x` 活得不够久
+   |         }
+   |         - `x` dropped here while still borrowed // `x` 在这里被丢弃，但是它依然还在被借用
+   |
+   |         println!("r: {}", r);
+   |                           - borrow later used here // 对 `x` 的借用在此处被使用
+```
+
+在这里 r 拥有更大的作用域，或者说活得更久。如果 Rust 不阻止该悬垂引用的发生，那么当 x 被释放后，r 所引用的值就不再是合法的，会导致我们程序发生异常行为，且该异常行为有时候会很难被发现。
+
+### 15.2. 借用检查
+
+
+### 15.3. 函数中的生命周期
+
+生命周期的语法也颇为与众不同，以 ' 开头，名称往往是一个单独的小写字母，大多数人都用 'a 来作为生命周期的名称。 如果是引用类型的参数，那么生命周期会位于引用符号 & 之后，并用一个空格来将生命周期和引用参数分隔开:
+
+```text
+&i32        // 一个引用
+&'a i32     // 具有显式生命周期的引用
+&'a mut i32 // 具有显式生命周期的可变引用
+```
+
+一个生命周期标注，它自身并不具有什么意义，因为生命周期的作用就是告诉编译器多个引用之间的关系。例如，有一个函数，它的第一个参数 first 是一个指向 i32 类型的引用，具有生命周期 'a，该函数还有另一个参数 second，它也是指向 i32 类型的引用，并且同样具有生命周期 'a。此处生命周期标注仅仅说明，这两个参数 first 和 second 至少活得和'a 一样久，至于到底活多久或者哪个活得更久, 无法得知：
+
+## 16. 方法 Method
+
+### 16.1. 定义方法
+
+Rust 使用 impl 来定义方法，例如以下代码：
+
+```rust
+struct Rectangle {
+  width: u32,
+  height: u32,
+}
+
+impl Rectangle {
+  fn area(&self) -> u32 {
+    self.width * self.height
+  }
+}
+
+fn main() {
+  let rect1 = Rectangle {
+    width: 30,
+    height: 50,
+  };
+
+  println!("{:?}", rect1.area())
+}
+```
+
+Rust 的对象定义和方法定义是分离的，struct Rectangle 和 impl Rectangle，这种数据和使用分离的方式，会给予使用者极高的灵活度。  
+
+impl Rectangle {} 表示为 Rectangle 实现方法(impl 是实现 implementation 的缩写)，这样的写法表明 impl 语句块中的一切都是跟 Rectangle 相关联的。  
+
+### 16.2. self、&self 和 &mut self
+
+在 area 的签名中，我们使用 &self 替代 rectangle: &Rectangle，&self 其实是 self: &Self 的简写（注意大小写）。在一个 impl 块内，Self 指代被实现方法的结构体类型，self 指代此类型的实例, self 指代的是 Rectangle 结构体实例.  
+
+为哪个结构体实现方法，那么 self 就是指代哪个结构体的实例。  
+
+self 依然有所有权的概念：
+
+- self 表示 Rectangle 的所有权转移到该方法中，这种形式用的较少
+- &self 表示该方法对 Rectangle 的不可变借用
+- &mut self 表示可变借用
+
+选择 &self 的理由跟在函数中使用 &Rectangle 是相同的：我们并不想获取所有权，也无需去改变它，只是希望能够读取结构体中的数据。如果想要在方法中去改变当前的结构体，需要将第一个参数改为 &mut self。仅仅通过使用 self 作为第一个参数来使方法获取实例的所有权是很少见的，这种使用方式往往用于把当前的对象转成另外一个对象时使用，转换完后，就不再关注之前的对象，且可以防止对之前对象的误调用。
+
+### 16.3. 方法名跟结构体字段名相同
+
+在 Rust 中，允许方法名跟结构体的字段名相同：
+
+```rust
+impl Rectangle {
+    fn width(&self) -> bool {
+        self.width > 0
+    }
+}
+
+fn main() {
+    let rect1 = Rectangle {
+        width: 30,
+        height: 50,
+    };
+
+    if rect1.width() {
+        println!("The rectangle has a nonzero width; it is {}", rect1.width);
+    }
+}
+```
+
+当我们使用 rect1.width() 时，Rust 知道我们调用的是它的方法，如果使用 rect1.width，则是访问它的字段。
+
+一般来说，方法跟字段同名，往往适用于实现 getter 访问器，例如:
+
+```rust
+pub struct Rectangle {
+    width: u32,
+    height: u32,
+}
+
+impl Rectangle {
+    pub fn new(width: u32, height: u32) -> Self {
+        Rectangle { width, height }
+    }
+    pub fn width(&self) -> u32 {
+        return self.width;
+    }
+}
+
+fn main() {
+    let rect1 = Rectangle::new(30, 50);
+
+    println!("{}", rect1.width());
+}
+```
+
+用这种方式，可以把 Rectangle 的字段设置为私有属性，只需把它的 new 和 width 方法设置为公开可见，那么用户就可以创建一个矩形，同时通过访问器 rect1.width() 方法来获取矩形的宽度，因为 width 字段是私有的，当用户访问 rect1.width 字段时，就会报错。注意在此例中，Self 指代的就是被实现方法的结构体 Rectangle。  
+
+### 16.4. 带有多个参数的方法
+
+```rust
+impl Rectangle {
+    fn area(&self) -> u32 {
+        self.width * self.height
+    }
+
+    fn can_hold(&self, other: &Rectangle) -> bool {
+        self.width > other.width && self.height > other.height
+    }
+}
+
+fn main() {
+    let rect1 = Rectangle { width: 30, height: 50 };
+    let rect2 = Rectangle { width: 10, height: 40 };
+    let rect3 = Rectangle { width: 60, height: 45 };
+
+    println!("Can rect1 hold rect2? {}", rect1.can_hold(&rect2));
+    println!("Can rect1 hold rect3? {}", rect1.can_hold(&rect3));
+}
+```
+
+### 16.5. 关联函数
+
+在 impl 中且没有 self 的函数被称之为关联函数： 因为它没有 self，不能用 f.read() 的形式调用，因此它是一个函数而不是方法，它又在 impl 中，与结构体紧密关联，因此称为关联函数。
+
+```rust
+impl Rectangle {
+    fn new(w: u32, h: u32) -> Rectangle {
+        Rectangle { width: w, height: h }
+    }
+}
+```
+
+因为是函数，所以不能用 . 的方式来调用，我们需要用 :: 来调用，例如 let sq = Rectangle::new(3, 3);。这个方法位于结构体的命名空间中：:: 语法用于关联函数和模块创建的命名空间。
+
+### 16.6. 多个 impl 定义
+
+Rust 允许我们为一个结构体定义多个 impl 块，目的是提供更多的灵活性和代码组织性，例如当方法多了后，可以把相关的方法组织在同一个 impl 块中，那么就可以形成多个 impl 块，各自完成一块儿目标：
+
+```rust
+impl Rectangle {
+    fn area(&self) -> u32 {
+        self.width * self.height
+    }
+}
+
+impl Rectangle {
+    fn can_hold(&self, other: &Rectangle) -> bool {
+        self.width > other.width && self.height > other.height
+    }
+}
+```
+
+### 16.7. 为枚举实现方法
+
+枚举类型之所以强大，不仅仅在于它好用、可以同一化类型，还在于，我们可以像结构体一样，为枚举实现方法：
+
+```rust
+enum Message {
+    Quit,
+    Move { x: i32, y: i32 },
+    Write(String),
+    ChangeColor(i32, i32, i32),
+}
+
+impl Message {
+    fn call(&self) {
+        // 在这里定义方法体
+    }
+}
+
+fn main() {
+    let m = Message::Write(String::from("hello"));
+    m.call();
+}
+```
+
+
+## x. 模块管理
 
 Rust 有许多功能可以让你管理代码的组织，包括哪些内容可以被公开，哪些内容作为私有部分，以及程序每个作用域中的名字。这些功能被称为 “模块系统（the module system）”，包括：
 
@@ -1486,7 +2644,7 @@ Rust 有许多功能可以让你管理代码的组织，包括哪些内容可以
 - 模块（Modules）和 use： 允许你控制作用域和路径的私有性。
 - 路径（path）：一个命名例如结构体、函数或模块等项的方式
 
-### 12.1. 包和 Crate
+### x.1. 包和 Crate
 
 crate 是一个二进制项或者库。crate root 是一个源文件，Rust 编译器以它为起始点，并构成你的 crate 的根模块.  
 包（package） 是提供一系列功能的一个或者多个 crate。一个包会包含有一个 Cargo.toml 文件，阐述如何去构建这些 crate。  
@@ -1504,7 +2662,7 @@ $ ls my-project/src
 main.rs
 ```
 
-### 12.2 定义模块来控制作用域与私有性
+### x.2 定义模块来控制作用域与私有性
 
 一个包含了其他内置了函数的模块的 front_of_house 模块
 
@@ -1634,41 +2792,3 @@ fn function2() -> IoResult<()> {
     // --snip--
 }
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
