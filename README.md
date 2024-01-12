@@ -103,6 +103,8 @@ Rust 程序设计语言：https://doc.rust-lang.org/book/
   - [x. 模块管理](#x-模块管理)
     - [x.1. 包和 Crate](#x1-包和-crate)
     - [x.2 定义模块来控制作用域与私有性](#x2-定义模块来控制作用域与私有性)
+    - [x.3 库 Package](#x3-库-package)
+      - [x.3.1. Package 结构](#x31-package-结构)
 
 ## 1. Rust 的安装(Mac)
 
@@ -2792,3 +2794,51 @@ fn function2() -> IoResult<()> {
     // --snip--
 }
 ```
+
+### x.3 库 Package
+
+```rust
+$ cargo new my-lib --lib
+     Created library `my-lib` package
+$ ls my-lib
+Cargo.toml
+src
+$ ls my-lib/src
+lib.rs
+```
+
+#### x.3.1. Package 结构
+
+一个真实项目中典型的 Package，会包含多个二进制包，这些包文件被放在 src/bin 目录下，每一个文件都是独立的二进制包，同时也会包含一个库包，该包只能存在一个 src/lib.rs：
+
+```text
+.
+├── Cargo.toml
+├── Cargo.lock
+├── src
+│   ├── main.rs
+│   ├── lib.rs
+│   └── bin
+│       └── main1.rs
+│       └── main2.rs
+├── tests
+│   └── some_integration_tests.rs
+├── benches
+│   └── simple_bench.rs
+└── examples
+    └── simple_example.rs
+```
+
+- 唯一库包：src/lib.rs
+- 默认二进制包：src/main.rs，编译后生成的可执行文件与 Package 同名
+- 其余二进制包：src/bin/main1.rs 和 src/bin/main2.rs，它们会分别生成一个文件同名的二进制可执行文件
+- 集成测试文件：tests 目录下
+- 基准性能测试 benchmark 文件：benches 目录下
+- 项目示例：examples 目录下
+
+
+
+
+
+
+
