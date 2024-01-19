@@ -100,6 +100,28 @@ Rust 程序设计语言：https://doc.rust-lang.org/book/
     - [16.5. 关联函数](#165-关联函数)
     - [16.6. 多个 impl 定义](#166-多个-impl-定义)
     - [16.7. 为枚举实现方法](#167-为枚举实现方法)
+  - [17. 使用 macro\_rules! 来创建宏](#17-使用-macro_rules-来创建宏)
+    - [17.1. 指示符](#171-指示符)
+    - [17.2. 重载](#172-重载)
+    - [17.3. 重复](#173-重复)
+    - [17.4. DRY (不写重复代码)](#174-dry-不写重复代码)
+    - [17.5. DSL（领域专用语言）](#175-dsl领域专用语言)
+    - [17.6. 可变参数接口](#176-可变参数接口)
+  - [18. 错误处理](#18-错误处理)
+    - [18.1. panic](#181-panic)
+    - [18.2. Option 和 unwrap](#182-option-和-unwrap)
+    - [18.3. 使用 ? 解开 Option](#183-使用--解开-option)
+    - [18.4. 组合算子：map](#184-组合算子map)
+    - [18.5. 组合算子：and\_then](#185-组合算子and_then)
+    - [18.6. 结果 Result](#186-结果-result)
+    - [18.7. Result 的 map](#187-result-的-map)
+    - [18.8. 给 Result 取别名](#188-给-result-取别名)
+    - [18.9. 提前返回](#189-提前返回)
+    - [18.10. 引入 ?](#1810-引入-)
+    - [18.11. try! 宏](#1811-try-宏)
+    - [18.12. 处理多种错误类型](#1812-处理多种错误类型)
+    - [18.13. 从 Option 中取出 Result](#1813-从-option-中取出-result)
+    - [18.4. 定义一个错误类型](#184-定义一个错误类型)
   - [x. 模块管理](#x-模块管理)
     - [x.1. 包和 Crate](#x1-包和-crate)
     - [x.2 定义模块来控制作用域与私有性](#x2-定义模块来控制作用域与私有性)
@@ -2635,6 +2657,765 @@ fn main() {
     m.call();
 }
 ```
+
+## 17. 使用 macro_rules! 来创建宏
+
+Rust 提供了一个强大的宏系统，可进行元编程（metaprogramming）。宏并不产生函数调用，而是展开成源码，并和程序的其余部分一起被编译。Rust 又有一点和 C 以及其他语言都不同，那就是 Rust 的宏会展开为抽象语法树（AST，abstract syntax tree），而不是像字符串预处理那样直接替换成代码，这样就不会产生无法预料的优先权错误。
+
+宏是通过 macro_rules! 宏来创建的。
+
+```rust
+// 这是一个简单的宏，名为 `say_hello`。
+macro_rules! say_hello {
+    // `()` 表示此宏不接受任何参数。
+    () => (
+        // 此宏将会展开成这个代码块里面的内容。
+        println!("Hello!");
+    )
+}
+
+fn main() {
+    // 这个调用将会展开成 `println("Hello");`!
+    say_hello!()
+}
+```
+
+为什么宏是有用的？
+
+- 不写重复代码（DRY，Don't repeat yourself.）。很多时候你需要在一些地方针对不同 的类型实现类似的功能，可以使用宏来避免重复代码。
+- 领域专用语言（DSL，domain-specific language）。宏允许你为特定的目的创造特定的语法。
+- 可变接口（variadic interface）。能够接受不定数目参数的接口，比如 println!，根据格式化字符串的不同，它需要接受任意多的参数。
+
+### 17.1. 指示符
+
+宏的参数使用一个美元符号 $ 作为前缀，并使用一个指示符（designator）来注明类型(https://doc.rust-lang.org/reference/macros-by-example.html)：
+
+- block 块表达式
+- expr 用于表达式
+- ident 用于变量名或函数名
+- item Item
+- literal 用于字面常量
+- pat 模式 pattern
+- path TypePath 样式路径
+- stmt 语句 statement
+- tt 标记树 token tree
+- ty 类型 type
+- vis 可见性描述符
+
+```rust
+macro_rules! print_result {
+    // 此宏接受一个 `expr` 类型的表达式，并将它作为字符串，连同其结果一起打印出来。
+    // `expr` 指示符表示表达式。
+    ($expression:expr) => {
+        // `stringify!` 把表达式*原样*转换成一个字符串。
+        println!("{:?} = {:?}", stringify!($expression), $expression)
+    };
+}
+
+fn main() {
+    foo();
+    bar();
+    print_result!(1u32 + 1); // "1u32 + 1" = 2
+
+    // 代码块也是表达式！
+    print_result!({
+        let x = 1u32;
+        x * x + 2 * x - 1
+    }); // "{ let x = 1u32; x * x + 2 * x - 1 }" = 2
+}
+```
+
+### 17.2. 重载
+
+宏可以重载，从而接受不同的参数组合。在这方面，macro_rules! 的作用类似于匹配（match）代码块：
+
+```rust
+macro_rules! test {
+    // 参数不需要使用逗号隔开。 参数可以任意组合！
+    ($left:expr; and $right:expr) => {
+        println!(
+            "{:?} and {:?} is {:?}",
+            stringify!($left),
+            stringify!($right),
+            $left && $right
+        )
+    };
+    // 每个分支都必须以分号结束。
+    ($left:expr; or $right:expr) => {
+        println!(
+            "{:?} or {:?} is {:?}",
+            stringify!($left),
+            stringify!($right),
+            $left || $right
+        )
+    };
+}
+
+fn main() {
+    test!(1i32 + 1 == 2i32; and 2i32 * 2 == 4i32); // "1i32 + 1 == 2i32" and "2i32 * 2 == 4i32" is true
+    test!(true; or false); // "true" or "false" is true
+}
+```
+
+### 17.3. 重复
+
+宏在参数列表中可以使用 + 来表示一个参数可能出现一次或多次，使用 * 来表示该参数可能出现零次或多次。
+
+> $(...),+ 包围起来，就可以匹配一个或多个用逗号隔开的表达式。另外注意到，宏定义的最后一个分支可以不用分号作为结束。
+
+```rust
+macro_rules! find_min {
+    // 基本情形：
+    ($x:expr) => ($x);
+    // `$x` 后面跟着至少一个 `$y,`
+    ($x:expr, $($y:expr),+) => (
+        // 对 `$x` 后面的 `$y` 们调用 `find_min!`
+        std::cmp::min($x, find_min!($($y),+))
+    )
+}
+
+fn main() {
+    println!("{}", find_min!(1u32)); // 1
+    println!("{}", find_min!(1u32 + 2, 2u32)); // 2
+    println!("{}", find_min!(5u32, 2u32 * 3, 4u32)); // 4
+}
+```
+
+### 17.4. DRY (不写重复代码)
+
+通过提取函数或测试集的公共部分，宏可以让你写出 DRY 的代码, 一个例子，对 Vec<T> 实现并测试了关于 +=、*= 和 -= 等运算符。
+
+```rust
+use std::ops::{Add, Mul, Sub};
+
+macro_rules! assert_equal_len {
+    // `tt`（token tree，标记树）指示符表示运算符和标记。
+    ($a:ident, $b: ident, $func:ident, $op:tt) => {
+        assert!(
+            $a.len() == $b.len(),
+            "{:?}: dimension mismatch: {:?} {:?} {:?}",
+            stringify!($func),
+            ($a.len(),),
+            stringify!($op),
+            ($b.len(),)
+        );
+    };
+}
+
+macro_rules! op {
+    ($func:ident, $bound:ident, $op:tt, $method:ident) => {
+        fn $func<T: $bound<T, Output = T> + Copy>(xs: &mut Vec<T>, ys: &Vec<T>) {
+            assert_equal_len!(xs, ys, $func, $op);
+
+            for (x, y) in xs.iter_mut().zip(ys.iter()) {
+                *x = $bound::$method(*x, *y);
+                // *x = x.$method(*y); // 效果同上
+            }
+        }
+    };
+}
+
+// 实现 `add_assign`、`mul_assign` 和 `sub_assign` 等函数。
+op!(add_assign, Add, +=, add);
+op!(mul_assign, Mul, *=, mul);
+op!(sub_assign, Sub, -=, sub);
+```
+
+### 17.5. DSL（领域专用语言）
+
+DSL 是 Rust 的宏中集成的微型 “语言”。这种语言是完全合法的，因为宏系统会把它转换成普通的 Rust 语法树，它只不过看起来像是另一种语言而已。这就允许你为一些特定功能创造一套简洁直观的语法（当然是有限制的）。
+
+定义一套小的计算器 API，可以传给它表达式，它会把结果打印到控制台上。
+
+```rust
+macro_rules! calculate {
+    (eval $e:expr) => {{
+        {
+            let val: usize = $e; // 强制类型为整型
+            println!("{} = {}", stringify!{$e}, val);
+        }
+    }};
+}
+
+fn main() {
+    calculate! {
+        eval 1 + 2 // `eval` 可并不是 Rust 的关键字！
+    } // 1 + 2 = 3
+
+    calculate! {
+        eval (1 + 2) * (3 / 4)
+    } // (1 + 2) * (3 / 4) = 0   ??
+}
+```
+
+### 17.6. 可变参数接口
+
+可变参数接口可以接受任意数目的参数。比如说 println 就可以，其参数的数目是由格式化字符串指定的。
+
+```rust
+macro_rules! calculate {
+    // 单个 `eval` 的模式
+    (eval $e:expr) => {{
+        {
+            let val: usize = $e; // Force types to be integers
+            println!("{} = {}", stringify!{$e}, val);
+        }
+    }};
+
+    // 递归地拆解多重的 `eval`
+    (eval $e:expr, $(eval $es:expr),+) => {{
+        calculate! { eval $e }
+        calculate! { $(eval $es),+ }
+    }};
+}
+
+fn main() {
+    calculate! { // 可变参数的 `calculate!`！
+        eval 1 + 2,
+        eval 3 + 4,
+        eval (2 * 3) + 1,
+        eval 6 + 4
+    }
+    // 1 + 2 = 3
+    // 3 + 4 = 7
+    // (2 * 3) + 1 = 7
+    // 6 + 4 = 10
+}
+```
+
+## 18. 错误处理
+
+错误处理（error handling）是处理可能发生的失败情况的过程。例如读取一个文件时失败了，如果继续使用这个无效的输入，那显然是有问题的。注意到并且显式地处理这种错误可以避免程序的其他部分产生潜在的问题。
+
+在 Rust 中有多种处理错误的方式:
+
+- 显式的 panic 主要用于测试，以及处理不可恢复的错误。在原型开发中这很有用，比如 用来测试还没有实现的函数，不过这时使用 unimplemented 更能表达意图。另外在 测试中，panic 是一种显式地失败（fail）的好方法。
+- Option 类型是为了值是可选的、或者缺少值并不是错误的情况准备的。比如说寻找 父目录时，/ 和 C: 这样的目录就没有父目录，这应当并不是一个错误。当处理 Option 时，unwrap 可用于原型开发，也可以用于能够确定 Option 中一定有值 的情形。然而 expect 更有用，因为它允许你指定一条错误信息，以免万一还是出现 了错误。
+- 当错误有可能发生，且应当由调用者处理时，使用 Result。你也可以 unwrap 然后 使用 expect，但是除了在测试或者原型开发中，请不要这样做。
+
+### 18.1. panic
+
+最简单的错误处理机制就是 panic。它会打印一个错误消息，开始回退（unwind）任务，且通常会退出程序。这里我们显式地在错误条件下调用 panic：
+
+```rust
+fn give_princess(gift: &str) {
+    if gift == "snake" {
+        panic!("AAAaaaaa!!!!");
+    }
+
+    println!("I love {}s!!!!!", gift);
+}
+
+fn main() {
+    give_princess("teddy bear");
+    give_princess("snake");
+}
+```
+
+### 18.2. Option 和 unwrap
+
+在标准库（std）中有个叫做 Option<T>（option 中文意思是 “选项”）的枚举类型，用于有 “不存在” 的可能性的情况。它表现为以下两个 “option”（选项）中的一个：
+
+- Some(T)：找到一个属于 T 类型的元素
+- None：找不到相应元素
+
+这些选项可以通过 match 显式地处理，或使用 unwrap 隐式地处理。隐式处理要么返回 Some 内部的元素，要么就 panic。
+
+手动使用 expect 方法自定义 panic 信息是可能的，但相比显式处理，unwrap 的输出仍显得不太有意义。在下面例子中，显式处理将举出更受控制的结果，同时如果需要的话，仍然可以使程序 panic。
+
+```rust
+// 显式地使用 `match` 来处理。
+fn give_commoner(gift: Option<&str>) {
+    // 指出每种情况下的做法。
+    match gift {
+        Some("snake") => println!("Yuck! I'm throwing that snake in a fire."),
+        Some(inner) => println!("{}? How nice.", inner),
+        None => println!("No gift? Oh well."),
+    }
+}
+
+// 使用 `unwrap` 隐式地处理。
+fn give_princess(gift: Option<&str>) {
+    // `unwrap` 在接收到 `None` 时将返回 `panic`。
+    let inside = gift.unwrap();
+    if inside == "snake" {
+        panic!("AAAaaaaa!!!!");
+    }
+
+    println!("I love {}s!!!!!", inside);
+}
+
+fn main() {
+    let food = Some("chicken");
+    let snake = Some("snake");
+    let void = None;
+
+    give_commoner(food); // chicken? How nice.
+    give_commoner(snake); // Yuck! I'm throwing that snake in a fire.
+    give_commoner(void); // No gift? Oh well.
+
+    let bird = Some("robin");
+    let nothing = None;
+
+    give_princess(bird); // I love robins!!!!!
+    give_princess(nothing); // thread 'main' panicked at src/main.rs:29:23:   called `Option::unwrap()` on a `None` value
+}
+```
+
+### 18.3. 使用 ? 解开 Option
+
+如果 x 是 Option，那么若 x 是 Some ，对x?表达式求值将返回底层值，否则无论函数是否正在执行都将终止且返回 None。
+
+```rust
+struct Person {
+    job: Option<Job>,
+}
+
+#[derive(Clone, Copy)]
+struct Job {
+    phone_number: Option<PhoneNumber>,
+}
+
+#[derive(Clone, Copy)]
+struct PhoneNumber {
+    area_code: Option<u8>,
+    number: u32,
+}
+
+impl Person {
+    // 获取此人的工作电话号码的区号（如果存在的话）。
+    fn work_phone_area_code(&self) -> Option<u8> {
+        // 没有`？`运算符的话，这将需要很多的嵌套的 `match` 语句。
+        self.job?.phone_number?.area_code
+    }
+}
+
+fn main() {
+    let p = Person {
+        job: Some(Job {
+            phone_number: Some(PhoneNumber {
+                area_code: Some(61),
+                number: 439222222,
+            }),
+        }),
+    };
+
+    println!("{:?}", p.work_phone_area_code()); // Some(61)
+}
+```
+
+### 18.4. 组合算子：map
+
+match 是处理 Option 的一个可用的方法，但你会发现大量使用它会很繁琐，特别是当操作只对一种输入是有效的时。这时，可以使用组合算子（combinator），以模块化的风格来管理控制流。
+
+Option 有一个内置方法 map()，这个组合算子可用于 Some -> Some 和 None -> None 这样的简单映射。多个不同的 map() 调用可以串起来，这样更加灵活。
+
+在下面例子中，process() 轻松取代了前面的所有函数，且更加紧凑。
+
+```rust
+#[derive(Debug)]
+enum Food {
+    Apple,
+    Carrot,
+    Potato,
+}
+
+#[derive(Debug)]
+struct Peeled(Food);
+#[derive(Debug)]
+struct Chopped(Food);
+#[derive(Debug)]
+struct Cooked(Food);
+
+// 削皮。如果没有食物，就返回 `None`。否则返回削好皮的食物。
+fn peel(food: Option<Food>) -> Option<Peeled> {
+    match food {
+        Some(food) => Some(Peeled(food)),
+        None => None,
+    }
+}
+
+// 切食物。如果没有食物，就返回 `None`。否则返回切好的食物。
+fn chop(peeled: Option<Peeled>) -> Option<Chopped> {
+    match peeled {
+        Some(Peeled(food)) => Some(Chopped(food)),
+        None => None,
+    }
+}
+
+// 烹饪食物。这里，我们使用 `map()` 来替代 `match` 以处理各种情况。
+fn cook(chopped: Option<Chopped>) -> Option<Cooked> {
+    chopped.map(|Chopped(food)| Cooked(food))
+}
+
+// 这个函数会完成削皮切块烹饪一条龙。我们把 `map()` 串起来，以简化代码。
+fn process(food: Option<Food>) -> Option<Cooked> {
+    food.map(|f| Peeled(f))
+        .map(|Peeled(f)| Chopped(f))
+        .map(|Chopped(f)| Cooked(f))
+}
+
+// 在尝试吃食物之前确认食物是否存在是非常重要的！
+fn eat(food: Option<Cooked>) {
+    match food {
+        Some(food) => println!("Mmm. I love {:?}", food),
+        None => println!("Oh no! It wasn't edible."),
+    }
+}
+
+fn main() {
+    let apple = Some(Food::Apple);
+    let carrot = Some(Food::Carrot);
+    let potato = None;
+
+    let cooked_apple = cook(chop(peel(apple)));
+    // let cooked_carrot = cook(chop(peel(carrot)));
+    let cooked_carrot = process(carrot); // 结果同上
+
+    // 看起来更简单的 `process()`
+    let cooked_potato = process(potato);
+
+    eat(cooked_apple); // Mmm. I love Cooked(Apple)
+    eat(cooked_carrot); // Mmm. I love Cooked(carrot)
+    eat(cooked_potato); // Oh no! It wasn't edible.
+}
+```
+
+### 18.5. 组合算子：and_then
+
+map() 以链式调用的方式来简化 match 语句。然而，如果以返回类型是 Option<T> 的函数作为 map() 的参数，会导致出现嵌套形式 Option<Option<T>>。这样多层串联调用就会变得混乱。所以有必要引入 and_then()，在某些语言中它叫做 flatmap。
+
+and_then() 使用被 Option 包裹的值来调用其输入函数并返回结果。 如果 Option 是 None，那么它返回 None。
+
+```rust
+enum Food {
+    CordonBleu,
+    Steak,
+    Sushi,
+}
+#[derive(Debug)]
+enum Day {
+    Monday,
+    Tuesday,
+    Wednesday,
+}
+
+// 没有制作寿司所需的原材料（ingredient）（有其他的原材料）。
+fn have_ingredients(food: Food) -> Option<Food> {
+    match food {
+        Food::Sushi => None,
+        _ => Some(food),
+    }
+}
+
+// 拥有全部食物的食谱，除了法国蓝带猪排（Cordon Bleu）的。
+fn have_recipe(food: Food) -> Option<Food> {
+    match food {
+        Food::CordonBleu => None,
+        _ => Some(food),
+    }
+}
+
+// 一系列 `match` 来表达这个逻辑：
+fn cookable_v1(food: Food) -> Option<Food> {
+    match have_ingredients(food) {
+        None => None,
+        Some(food) => match have_recipe(food) {
+            None => None,
+            Some(food) => Some(food),
+        },
+    }
+}
+
+// 也可以使用 `and_then()` 把上面的逻辑改写得更紧凑：
+fn cookable_v2(food: Food) -> Option<Food> {
+    have_ingredients(food).and_then(have_recipe)
+}
+
+fn eat(food: Food, day: Day) {
+    match cookable_v2(food) {
+        Some(food) => println!("Yay! On {:?} we get to eat {:?}.", day, food),
+        None => println!("Oh no. We don't get to eat on {:?}?", day),
+    }
+}
+
+fn main() {
+    let (cordon_bleu, steak, sushi) = (Food::CordonBleu, Food::Steak, Food::Sushi);
+
+    eat(cordon_bleu, Day::Monday); // Oh no. We don't get to eat on Monday?
+    eat(steak, Day::Tuesday); // Yay! On Tuesday we get to eat Steak.
+    eat(sushi, Day::Wednesday); // Oh no. We don't get to eat on Wednesday?
+}
+```
+
+### 18.6. 结果 Result
+
+Result 是 Option 类型的更丰富的版本，描述的是可能的错误而不是可能的不存在。
+
+也就是说，Result<T，E> 可以有两个结果的其中一个：
+
+- Ok<T>：找到 T 元素
+- Err<E>：找到 E 元素，E 即表示错误的类型。
+
+按照约定，预期结果是 “Ok”，而意外结果是 “Err”。
+
+Result 有很多类似 Option 的方法。例如 unwrap()，它要么举出元素 T，要么就 panic。 对于事件的处理，Result 和 Option 有很多相同的组合算子。
+
+在使用 Rust 时，你可能会遇到返回 Result 类型的方法，例如 parse() 方法。它并不是总能把字符串解析成指定的类型，所以 parse() 返回一个 Result 表示可能的失败。
+
+```rust
+fn multiply(first_number_str: &str, second_number_str: &str) -> i32 {
+    let first_number = first_number_str.parse::<i32>().unwrap();
+    let second_number = second_number_str.parse::<i32>().unwrap();
+    first_number * second_number
+}
+
+fn main() {
+    let twenty = multiply("10", "2");
+    println!("double is {}", twenty); // double is 20
+
+    let tt = multiply("t", "2");
+    println!("double is {}", tt); // called `Result::unwrap()` on an `Err` value: ParseIntError { kind: InvalidDigit }
+}
+```
+
+在失败的情况下，parse() 产生一个错误，留给 unwrap() 来解包并产生 panic。另外，panic 会退出我们的程序，并提供一个让人很不爽的错误消息。
+
+为了改善错误消息的质量，我们应该更具体地了解返回类型并考虑显式地处理错误。
+
+### 18.7. Result 的 map
+
+一般地，希望把错误返回给调用者，这样它可以决定回应错误的正确方式。
+
+首先，需要了解需要处理的错误类型是什么。为了确定 Err 的类型，可以用 parse() 来试验。Rust 已经为 i32 类型使用 FromStr trait 实现了 parse()。结果表明，这里的 Err 类型被指定为 ParseIntError。
+
+```rust
+fn multiply(first_number_str: &str, second_number_str: &str) -> Result<i32, ParseIntError> {
+    first_number_str.parse::<i32>().and_then(|first_number| {
+        second_number_str
+            .parse::<i32>()
+            .map(|second_number| first_number * second_number)
+    })
+}
+
+fn print(result: Result<i32, ParseIntError>) {
+    match result {
+        Ok(n) => println!("n is {}", n),
+        Err(e) => println!("Error: {}", e),
+    }
+}
+
+fn main() {
+    // 这种情况下仍然会给出正确的答案。
+    let twenty = multiply("10", "2");
+    print(twenty); // n is 20
+
+    // 这种情况下就会提供一条更有用的错误信息。
+    let tt = multiply("t", "2");
+    print(tt); // Error: invalid digit found in string
+}
+```
+
+### 18.8. 给 Result 取别名
+
+在模块的层面上创建别名特别有帮助。同一模块中的错误常常会有相同的 Err 类型，所以单个别名就能简便地定义所有相关的 Result。标准库也提供了一个别名： io::Result！
+
+```rust
+use std::num::ParseIntError;
+
+// 为带有错误类型 `ParseIntError` 的 `Result` 定义一个泛型别名。
+type AliasedResult<T> = Result<T, ParseIntError>;
+
+// 使用上面定义过的别名来表示上一节中的 `Result<i32,ParseIntError>` 类型。
+fn multiply(first_number_str: &str, second_number_str: &str) -> AliasedResult<i32> {
+    first_number_str.parse::<i32>().and_then(|first_number| {
+        second_number_str
+            .parse::<i32>()
+            .map(|second_number| first_number * second_number)
+    })
+}
+
+// 在这里使用别名又让我们节省了一些代码量。
+fn print(result: AliasedResult<i32>) {
+    match result {
+        Ok(n) => println!("n is {}", n),
+        Err(e) => println!("Error: {}", e),
+    }
+}
+
+fn main() {
+    print(multiply("10", "2")); // n is 20
+    print(multiply("t", "2")); // Error: invalid digit found in string
+}
+```
+
+### 18.9. 提前返回
+
+另一种处理错误的方式是使用 match 语句和提前返回（early return）的结合。
+
+如果发生错误，我们可以停止函数的执行然后返回错误。对有些人来说，这样的代码更好写，更易读。这次我们使用提前返回改写之前的例子：
+
+```rust
+use std::num::ParseIntError;
+
+fn multiply(first_number_str: &str, second_number_str: &str) -> Result<i32, ParseIntError> {
+    let first_number = match first_number_str.parse::<i32>() {
+        Ok(first_number) => first_number,
+        Err(e) => return Err(e),
+    };
+
+    let second_number = match second_number_str.parse::<i32>() {
+        Ok(second_number) => second_number,
+        Err(e) => return Err(e),
+    };
+
+    Ok(first_number * second_number)
+}
+
+fn print(result: Result<i32, ParseIntError>) {
+    match result {
+        Ok(n) => println!("n is {}", n),
+        Err(e) => println!("Error: {}", e),
+    }
+}
+
+fn main() {
+    print(multiply("10", "2")); // n is 20
+    print(multiply("t", "2")); // Error: invalid digit found in string
+}
+```
+
+### 18.10. 引入 ?
+
+有时我们只是想 unwrap 且避免产生 panic。到现在为止，对 unwrap 的错误处理都在强迫我们一层层地嵌套，然而我们只是想把里面的变量拿出来。? 正是为这种情况准备的, ? 几乎就等于一个会返回 Err 而不是 panic 的 unwrap。
+
+当找到一个 Err 时，可以采取两种行动：
+
+- panic!，不过我们已经决定要尽可能避免 panic 了。
+- 返回它，因为 Err 就意味着它已经不能被处理了。
+
+```rust
+use std::num::ParseIntError;
+
+fn multiply(first_number_str: &str, second_number_str: &str) -> Result<i32, ParseIntError> {
+    let first_number = first_number_str.parse::<i32>()?;
+    let second_number = second_number_str.parse::<i32>()?;
+
+    Ok(first_number * second_number)
+}
+
+fn print(result: Result<i32, ParseIntError>) {
+    match result {
+        Ok(n) => println!("n is {}", n),
+        Err(e) => println!("Error: {}", e),
+    }
+}
+
+fn main() {
+    print(multiply("10", "2")); // n is 20
+    print(multiply("t", "2")); // Error: invalid digit found in string
+}
+```
+
+### 18.11. try! 宏
+
+在 ? 出现以前，相同的功能是使用 try! 宏完成的。现在我们推荐使用 ? 运算符，但是在老代码中仍然会看到 try!。如果使用 try! 的话，上一个例子中的 multiply 函数看起来会像是这样：
+
+```rust
+use std::num::ParseIntError;
+
+fn multiply(first_number_str: &str, second_number_str: &str) -> Result<i32, ParseIntError> {
+    let first_number = r#try!(first_number_str.parse::<i32>());
+    let second_number = r#try!(second_number_str.parse::<i32>());
+
+    Ok(first_number * second_number)
+}
+
+fn print(result: Result<i32, ParseIntError>) {
+    match result {
+        Ok(n)  => println!("n is {}", n),
+        Err(e) => println!("Error: {}", e),
+    }
+}
+
+fn main() {
+    print(multiply("10", "2")); // n is 20
+    print(multiply("t", "2")); // Error: invalid digit found in string
+}
+```
+
+### 18.12. 处理多种错误类型
+
+有时 Option 需要和 Result 进行交互，或是 Result<T, Error1> 需要和 Result<T, Error2> 进行交互。在这类情况下，我们想要以一种方式来管理不同的错误类型，使得它们可组合且易于交互。
+
+在下面代码中，unwrap 的两个实例生成了不同的错误类型。Vec::first 返回一个 Option，而 parse::<i32> 返回一个 Result<i32, ParseIntError>：
+
+```rust
+fn double_first(vec: Vec<&str>) -> i32 {
+    let first = vec.first().unwrap(); // 生成错误 1
+    2 * first.parse::<i32>().unwrap() // 生成错误 2
+}
+
+fn main() {
+    let numbers = vec!["42", "93", "18"];
+    let empty = vec![];
+    let strings = vec!["tofu", "93", "18"];
+
+    println!("The first doubled is {}", double_first(numbers)); // The first doubled is 84
+ 
+    println!("The first doubled is {}", double_first(empty)); // called `Option::unwrap()` on a `None` value
+    // 错误1：输入 vector 为空
+
+    println!("The first doubled is {}", double_first(strings)); // called `Result::unwrap()` on an `Err` value: ParseIntError { kind: InvalidDigit }
+    // 错误2：此元素不能解析成数字
+}
+```
+
+### 18.13. 从 Option 中取出 Result
+
+处理混合错误类型的最基本的手段就是让它们互相包含。 Option 是 None 则继续处理错误。一些组合算子可以让我们轻松地交换 Result 和 Option。
+
+```rust
+use std::num::ParseIntError;
+
+fn double_first(vec: Vec<&str>) -> Result<Option<i32>, ParseIntError> {
+    let opt = vec.first().map(|first| first.parse::<i32>().map(|n| 2 * n));
+
+    opt.map_or(Ok(None), |r| r.map(Some))
+}
+
+fn main() {
+    let numbers = vec!["42", "93", "18"];
+    let empty = vec![];
+    let strings = vec!["tofu", "93", "18"];
+
+    println!("The first doubled is {:?}", double_first(numbers)); // The first doubled is Ok(Some(84))
+    println!("The first doubled is {:?}", double_first(empty)); // The first doubled is Ok(None)
+    println!("The first doubled is {:?}", double_first(strings)); // The first doubled is Err(ParseIntError { kind: InvalidDigit })
+}
+```
+
+### 18.4. 定义一个错误类型
+
+Rust 允许我们定义自己的错误类型。一般来说，一个 “好的” 错误类型应当：
+
+- 用同一个类型代表了多种错误
+- 向用户提供了清楚的错误信息
+- 能够容易地与其他类型比较
+  - 好的例子：Err(EmptyVec)
+  - 坏的例子：Err("Please use a vector with at least one element".to_owned())
+- 能够容纳错误的具体信息
+  - 好的例子：Err(BadChar(c, position))
+  - 坏的例子：Err("+ cannot be used here".to_owned())
+- 能够与其他错误很好地整合
+
+
+
+
+
+
+
+
 
 
 ## x. 模块管理
