@@ -122,6 +122,13 @@ Rust 程序设计语言：https://doc.rust-lang.org/book/
     - [18.12. 处理多种错误类型](#1812-处理多种错误类型)
     - [18.13. 从 Option 中取出 Result](#1813-从-option-中取出-result)
     - [18.4. 定义一个错误类型](#184-定义一个错误类型)
+    - [18.5. 把错误 “装箱”](#185-把错误-装箱)
+    - [18.6. ? 的其他用法](#186--的其他用法)
+    - [18.7. 包裹错误](#187-包裹错误)
+    - [18.8 遍历Result](#188-遍历result)
+      - [18.8.1 使用 filter\_map() 忽略失败的项](#1881-使用-filter_map-忽略失败的项)
+      - [18.8.2. 使用 collect() 使整个操作失败](#1882-使用-collect-使整个操作失败)
+      - [18.8.3. 使用 Partition() 收集所有合法的值与错误](#1883-使用-partition-收集所有合法的值与错误)
   - [x. 模块管理](#x-模块管理)
     - [x.1. 包和 Crate](#x1-包和-crate)
     - [x.2 定义模块来控制作用域与私有性](#x2-定义模块来控制作用域与私有性)
@@ -3408,6 +3415,130 @@ Rust 允许我们定义自己的错误类型。一般来说，一个 “好的�
   - 好的例子：Err(BadChar(c, position))
   - 坏的例子：Err("+ cannot be used here".to_owned())
 - 能够与其他错误很好地整合
+
+```rust
+use std::error;
+use std::fmt;
+
+type Result<T> = std::result::Result<T, DoubleError>;
+
+#[derive(Debug, Clone)]
+// 定义我们的错误类型，这种类型可以根据错误处理的实际情况定制。
+// 可以完全自定义错误类型，也可以在类型中完全采用底层的错误实现，也可以介于二者之间。
+struct DoubleError;
+
+// 没有储存关于错误的任何额外信息，也就是说，如果不修改我们的错误类型定义的话，就无法指明是哪个字符串解析失败了。
+impl fmt::Display for DoubleError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "invalid first item to double")
+    }
+}
+
+// 为 `DoubleError` 实现 `Error` trait，这样其他错误可以包裹这个错误类型。
+impl error::Error for DoubleError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        None // 泛型错误，没有记录其内部原因。
+    }
+}
+
+fn double_first(vec: Vec<&str>) -> Result<i32> {
+    vec.first()
+        .ok_or(DoubleError) // 把错误换成我们的新类型。
+        .and_then(|s| {
+            s.parse::<i32>()
+                .map_err(|_| DoubleError) // 这里也换成新类型。
+                .map(|i| 2 * i)
+        })
+}
+
+fn print(result: Result<i32>) {
+    match result {
+        Ok(n) => println!("The first doubled is {}", n),
+        Err(e) => println!("Error: {}", e),
+    }
+}
+
+fn main() {
+    let numbers = vec!["42", "93", "18"];
+    let empty = vec![];
+    let strings = vec!["tofu", "93", "18"];
+
+    print(double_first(numbers)); // The first doubled is 84
+    print(double_first(empty)); // Error: invalid first item to double
+    print(double_first(strings)); // Error: invalid first item to double
+}
+```
+
+### 18.5. 把错误 “装箱”
+
+想写简单的代码，又想保存原始错误信息，一个方法是把它们装箱（Box）。这样做的坏处就是，被包装的错误类型只能在运行时了解，而不能被静态地判别。
+
+### 18.6. ? 的其他用法
+
+? 实际上是指 unwrap 或 return Err(From::from(err))。由于 From::from 是不同类型之间的转换工具，也就是说，如果在错误可转换成返回类型地方使用 ?，它将自动转换成返回类型。
+
+```rust
+// 使用 `?` 立即得到内部值。
+fn double_first(vec: Vec<&str>) -> Result<i32> {
+    let first = vec.first().ok_or(EmptyVec)?;
+    let parsed = first.parse::<i32>()?;
+    Ok(2 * parsed)
+}
+```
+
+### 18.7. 包裹错误
+
+
+### 18.8 遍历Result
+
+Iter::map 操作可能失败
+
+
+#### 18.8.1 使用 filter_map() 忽略失败的项
+
+filter_map 会调用一个函数，过滤掉为 None 的所有结果。
+
+```rust
+fn main() {
+    let strings = vec!["tofu", "93", "18"];
+    let numbers: Vec<_> = strings
+        .into_iter()
+        .filter_map(|s| s.parse::<i32>().ok())
+        .collect();
+    println!("Results: {:?}", numbers); // Results: [93, 18]
+}
+```
+
+#### 18.8.2. 使用 collect() 使整个操作失败
+
+Result 实现了 FromIter，因此结果的向量（Vec<Result<T, E>>）可以被转换成结果包裹着向量（Result<Vec<T>, E>）。一旦找到一个 Result::Err ，遍历就被终止。
+
+```rust
+fn main() {
+    let strings = vec!["tofu", "93", "18"];
+    let numbers: Result<Vec<_>, _> = strings
+        .into_iter()
+        .map(|s| s.parse::<i32>())
+        .collect();
+    println!("Results: {:?}", numbers); // // Results: Err(ParseIntError { kind: InvalidDigit })
+}
+```
+
+#### 18.8.3. 使用 Partition() 收集所有合法的值与错误
+
+```rust
+fn main() {
+    let strings = vec!["tofu", "93", "18"];
+    let (numbers, errors): (Vec<_>, Vec<_>) = strings
+        .into_iter()
+        .map(|s| s.parse::<i32>())
+        .partition(Result::is_ok);
+    println!("Numbers: {:?}", numbers); // Numbers: [Ok(93), Ok(18)]
+    println!("Errors: {:?}", errors); // Errors: [Err(ParseIntError { kind: InvalidDigit })]
+}
+```
+
+
 
 
 

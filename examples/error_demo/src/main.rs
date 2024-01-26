@@ -424,56 +424,273 @@
 //     println!("The first doubled is {:?}", double_first(strings)); // The first doubled is Err(ParseIntError { kind: InvalidDigit })
 // }
 
-use std::error;
-use std::fmt;
+// // 定义一个错误类型
+// use std::error;
+// use std::fmt;
 
-type Result<T> = std::result::Result<T, DoubleError>;
+// type Result<T> = std::result::Result<T, DoubleError>;
 
-#[derive(Debug, Clone)]
-// 定义我们的错误类型，这种类型可以根据错误处理的实际情况定制。
-// 可以完全自定义错误类型，也可以在类型中完全采用底层的错误实现，也可以介于二者之间。
-struct DoubleError;
+// #[derive(Debug, Clone)]
+// // 定义我们的错误类型，这种类型可以根据错误处理的实际情况定制。
+// // 可以完全自定义错误类型，也可以在类型中完全采用底层的错误实现，也可以介于二者之间。
+// struct DoubleError;
 
-// 没有储存关于错误的任何额外信息，也就是说，如果不修改我们的错误类型定义的话，就无法指明是哪个字符串解析失败了。
-impl fmt::Display for DoubleError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "invalid first item to double")
-    }
-}
+// // 没有储存关于错误的任何额外信息，也就是说，如果不修改我们的错误类型定义的话，就无法指明是哪个字符串解析失败了。
+// impl fmt::Display for DoubleError {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         write!(f, "invalid first item to double")
+//     }
+// }
 
-// 为 `DoubleError` 实现 `Error` trait，这样其他错误可以包裹这个错误类型。
-impl error::Error for DoubleError {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        // 泛型错误，没有记录其内部原因。
-        None
-    }
-}
+// // 为 `DoubleError` 实现 `Error` trait，这样其他错误可以包裹这个错误类型。
+// impl error::Error for DoubleError {
+//     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+//         None // 泛型错误，没有记录其内部原因。
+//     }
+// }
 
-fn double_first(vec: Vec<&str>) -> Result<i32> {
-    vec.first()
-        // 把错误换成我们的新类型。
-        .ok_or(DoubleError)
-        .and_then(|s| {
-            s.parse::<i32>()
-                // 这里也换成新类型。
-                .map_err(|_| DoubleError)
-                .map(|i| 2 * i)
-        })
-}
+// fn double_first(vec: Vec<&str>) -> Result<i32> {
+//     vec.first()
+//         .ok_or(DoubleError) // 把错误换成我们的新类型。
+//         .and_then(|s| {
+//             s.parse::<i32>()
+//                 .map_err(|_| DoubleError) // 这里也换成新类型。
+//                 .map(|i| 2 * i)
+//         })
+// }
 
-fn print(result: Result<i32>) {
-    match result {
-        Ok(n) => println!("The first doubled is {}", n),
-        Err(e) => println!("Error: {}", e),
-    }
-}
+// fn print(result: Result<i32>) {
+//     match result {
+//         Ok(n) => println!("The first doubled is {}", n),
+//         Err(e) => println!("Error: {}", e),
+//     }
+// }
+
+// fn main() {
+//     let numbers = vec!["42", "93", "18"];
+//     let empty = vec![];
+//     let strings = vec!["tofu", "93", "18"];
+
+//     print(double_first(numbers)); // The first doubled is 84
+//     print(double_first(empty)); // Error: invalid first item to double
+//     print(double_first(strings)); // Error: invalid first item to double
+// }
+
+// // 把错误 “装箱”
+// use std::error;
+// use std::fmt;
+
+// // 为 `Box<error::Error>` 取别名。
+// type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
+
+// #[derive(Debug, Clone)]
+// struct EmptyVec;
+
+// impl fmt::Display for EmptyVec {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         write!(f, "invalid first item to double")
+//     }
+// }
+
+// impl error::Error for EmptyVec {
+//     fn description(&self) -> &str {
+//         "invalid first item to double"
+//     }
+
+//     fn cause(&self) -> Option<&dyn error::Error> {
+//         // 泛型错误。没有记录其内部原因。
+//         None
+//     }
+// }
+
+// fn double_first(vec: Vec<&str>) -> Result<i32> {
+//     vec.first()
+//         .ok_or_else(|| EmptyVec.into()) // 装箱
+//         .and_then(|s| {
+//             s.parse::<i32>()
+//                 .map_err(|e| e.into()) // 装箱
+//                 .map(|i| 2 * i)
+//         })
+// }
+
+// fn print(result: Result<i32>) {
+//     match result {
+//         Ok(n) => println!("The first doubled is {}", n),
+//         Err(e) => println!("Error: {}", e),
+//     }
+// }
+
+// fn main() {
+//     let numbers = vec!["42", "93", "18"];
+//     let empty = vec![];
+//     let strings = vec!["tofu", "93", "18"];
+
+//     print(double_first(numbers));
+//     print(double_first(empty));
+//     print(double_first(strings));
+// }
+
+// // ? 的用法
+// use std::error;
+// use std::fmt;
+
+// // 为 `Box<error::Error>` 取别名。
+// type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
+
+// #[derive(Debug)]
+// struct EmptyVec;
+
+// impl fmt::Display for EmptyVec {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         write!(f, "invalid first item to double")
+//     }
+// }
+
+// impl error::Error for EmptyVec {}
+
+// // 使用 `?` 立即得到内部值。
+// fn double_first(vec: Vec<&str>) -> Result<i32> {
+//     let first = vec.first().ok_or(EmptyVec)?;
+//     let parsed = first.parse::<i32>()?;
+//     Ok(2 * parsed)
+// }
+
+// fn print(result: Result<i32>) {
+//     match result {
+//         Ok(n) => println!("The first doubled is {}", n),
+//         Err(e) => println!("Error: {}", e),
+//     }
+// }
+
+// fn main() {
+//     let numbers = vec!["42", "93", "18"];
+//     let empty = vec![];
+//     let strings = vec!["tofu", "93", "18"];
+
+//     print(double_first(numbers));
+//     print(double_first(empty));
+//     print(double_first(strings));
+// }
+
+// // 包裹错误
+// use std::error;
+// use std::fmt;
+// use std::num::ParseIntError;
+
+// type Result<T> = std::result::Result<T, DoubleError>;
+
+// #[derive(Debug)]
+// enum DoubleError {
+//     EmptyVec,
+//     // 在这个错误类型中，我们采用 `parse` 的错误类型中 `Err` 部分的实现。
+//     // 若想提供更多信息，则该类型中还需要加入更多数据。
+//     Parse(ParseIntError),
+// }
+
+// impl fmt::Display for DoubleError {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         match *self {
+//             DoubleError::EmptyVec => write!(f, "please use a vector with at least one element"),
+//             // 这是一个封装（wrapper），它采用内部各类型对 `fmt` 的实现。
+//             DoubleError::Parse(ref e) => e.fmt(f),
+//         }
+//     }
+// }
+
+// impl error::Error for DoubleError {
+//     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+//         match *self {
+//             DoubleError::EmptyVec => None,
+//             // 原因采取内部对错误类型的实现。它隐式地转换成了 trait 对象 `&error:Error`。
+//             // 这可以工作，因为内部的类型已经实现了 `Error` trait。
+//             DoubleError::Parse(ref e) => Some(e),
+//         }
+//     }
+// }
+
+// // 实现从 `ParseIntError` 到 `DoubleError` 的转换。
+// // 在使用 `?` 时，或者一个 `ParseIntError` 需要转换成 `DoubleError` 时，它会被自动调用。
+// impl From<ParseIntError> for DoubleError {
+//     fn from(err: ParseIntError) -> DoubleError {
+//         DoubleError::Parse(err)
+//     }
+// }
+
+// fn double_first(vec: Vec<&str>) -> Result<i32> {
+//     let first = vec.first().ok_or(DoubleError::EmptyVec)?;
+//     let parsed = first.parse::<i32>()?;
+
+//     Ok(2 * parsed)
+// }
+
+// fn print(result: Result<i32>) {
+//     match result {
+//         Ok(n) => println!("The first doubled is {}", n),
+//         Err(e) => println!("Error: {}", e),
+//     }
+// }
+
+// fn main() {
+//     let numbers = vec!["42", "93", "18"];
+//     let empty = vec![];
+//     let strings = vec!["tofu", "93", "18"];
+
+//     print(double_first(numbers)); // The first doubled is 84
+//     print(double_first(empty)); // Error: please use a vector with at least one element
+//     print(double_first(strings)); // Error: invalid digit found in string
+// }
+
+// // 遍历 Result
+// fn main() {
+//     let strings = vec!["tofu", "93", "18"];
+//     let numbers: Vec<_> = strings
+//         .into_iter()
+//         .map(|s| s.parse::<i32>())
+//         .collect();
+//     println!("Results: {:?}", numbers);
+//     // Results: [Err(ParseIntError { kind: InvalidDigit }), Ok(93), Ok(18)]
+// }
+
+// // filter_map 会调用一个函数，过滤掉为 None 的所有结果
+// fn main() {
+//     let strings = vec!["tofu", "93", "18"];
+//     let numbers: Vec<_> = strings
+//         .into_iter()
+//         .filter_map(|s| s.parse::<i32>().ok())
+//         .collect();
+//     println!("Results: {:?}", numbers); // Results: [93, 18]
+// }
+
+// // Result 实现了 FromIter，因此结果的向量（Vec<Result<T, E>>）可以被转换成结果包裹着向量（Result<Vec<T>, E>）。一旦找到一个 Result::Err ，遍历就被终止。
+// fn main() {
+//     let strings = vec!["tofu", "93", "18"];
+//     let numbers: Result<Vec<_>, _> = strings
+//         .into_iter()
+//         .map(|s| s.parse::<i32>())
+//         .collect();
+//     println!("Results: {:?}", numbers); // Results: Err(ParseIntError { kind: InvalidDigit })
+// }
+
+// // 使用 Partition() 收集所有合法的值与错误
+// fn main() {
+//     let strings = vec!["tofu", "93", "18"];
+//     let (numbers, errors): (Vec<_>, Vec<_>) = strings
+//         .into_iter()
+//         .map(|s| s.parse::<i32>())
+//         .partition(Result::is_ok);
+//     println!("Numbers: {:?}", numbers); // Numbers: [Ok(93), Ok(18)]
+//     println!("Errors: {:?}", errors); // Errors: [Err(ParseIntError { kind: InvalidDigit })]
+// }
 
 fn main() {
-    let numbers = vec!["42", "93", "18"];
-    let empty = vec![];
     let strings = vec!["tofu", "93", "18"];
-
-    print(double_first(numbers)); // The first doubled is 84
-    print(double_first(empty)); // Error: invalid first item to double
-    print(double_first(strings)); // Error: invalid first item to double
+    let (numbers, errors): (Vec<_>, Vec<_>) = strings
+        .into_iter()
+        .map(|s| s.parse::<i32>())
+        .partition(Result::is_ok);
+    let numbers: Vec<_> = numbers.into_iter().map(Result::unwrap).collect();
+    let errors: Vec<_> = errors.into_iter().map(Result::unwrap_err).collect();
+    println!("Numbers: {:?}", numbers); // Numbers: [93, 18]
+    println!("Errors: {:?}", errors); // Errors: [ParseIntError { kind: InvalidDigit }]
 }
+
